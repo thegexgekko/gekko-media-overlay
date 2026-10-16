@@ -17,6 +17,7 @@ Module Foundry VTT V14 permettant au MJ d'afficher des images, vidéos, textes e
 - Bouton de fermeture local côté joueur, activable fenêtre par fenêtre par le MJ.
 - Cadres intégrés : Aucun, Sobre, Métal, Holographique, Terminal et Fantasy.
 - Cadres personnalisés chargés depuis le dossier Data de Foundry.
+- Épaisseur et marge interne des cadres personnalisés réglables indépendamment, sans modifier l'opacité du fond.
 - Aperçu MJ.
 - Bouton dédié dans la barre de contrôles de scène.
 
