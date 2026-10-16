@@ -1,0 +1,142 @@
+<section class="gmo-manager-body">
+  <header class="gmo-manager-toolbar">
+    <div>
+      <h2>Fenêtres média</h2>
+      <p>Chaque fenêtre possède son propre média, sa taille, sa position et ses destinataires.</p>
+    </div>
+    <div class="gmo-toolbar-actions">
+      <button type="button" data-action="new">
+        <i class="fa-solid fa-plus"></i> Nouvelle fenêtre
+      </button>
+      <button type="button" data-action="closeAll" class="gmo-danger-soft">
+        <i class="fa-solid fa-xmark"></i> Tout fermer
+      </button>
+    </div>
+  </header>
+
+  {{#unless hasOverlays}}
+    <div class="gmo-empty-state">
+      <i class="fa-solid fa-photo-film"></i>
+      <strong>Aucune fenêtre configurée.</strong>
+      <span>Crée ta première fenêtre média avec le bouton ci-dessus.</span>
+    </div>
+  {{/unless}}
+
+  <div class="gmo-overlay-list">
+    {{#each overlays}}
+      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}}" data-overlay-id="{{id}}">
+        <div class="gmo-card-header">
+          <input class="gmo-name" name="name" type="text" value="{{name}}" aria-label="Nom de la fenêtre">
+          <span class="gmo-status {{#if active}}is-active{{/if}}">
+            <i class="fa-solid {{#if active}}fa-circle-play{{else}}fa-circle-stop{{/if}}"></i>
+            {{statusLabel}}
+          </span>
+        </div>
+
+        <div class="gmo-grid">
+          <div class="gmo-field gmo-field-wide">
+            <label>Média</label>
+            <div class="gmo-file-row">
+              <input name="media" type="text" value="{{media}}" placeholder="images/scene.webp ou videos/transmission.webm">
+              <button type="button" data-action="browse" title="Parcourir les fichiers">
+                <i class="fa-solid fa-folder-open"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="gmo-field">
+            <label>Largeur</label>
+            <div class="gmo-inline-inputs">
+              <input name="width" type="number" min="1" max="4000" step="1" value="{{width}}">
+              <select name="widthUnit">
+                {{#each widthUnits}}
+                  <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+                {{/each}}
+              </select>
+            </div>
+          </div>
+
+          <div class="gmo-field">
+            <label>Hauteur</label>
+            <div class="gmo-inline-inputs">
+              <input name="height" type="number" min="0" max="4000" step="1" value="{{height}}">
+              <select name="heightUnit">
+                {{#each heightUnits}}
+                  <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+                {{/each}}
+              </select>
+            </div>
+          </div>
+
+          <div class="gmo-field">
+            <label>Position</label>
+            <select name="position">
+              {{#each positions}}
+                <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+          </div>
+
+          <div class="gmo-field gmo-options-field">
+            <label>Affichage</label>
+            <div class="gmo-check-row">
+              <label><input name="preserveRatio" type="checkbox" {{#if preserveRatio}}checked{{/if}}> Ratio</label>
+              <label><input name="darkBackdrop" type="checkbox" {{#if darkBackdrop}}checked{{/if}}> Fond sombre</label>
+            </div>
+          </div>
+
+          <div class="gmo-field gmo-field-wide gmo-video-options">
+            <label>Options vidéo</label>
+            <div class="gmo-check-row">
+              <label><input name="autoplay" type="checkbox" {{#if autoplay}}checked{{/if}}> Lecture auto</label>
+              <label><input name="loop" type="checkbox" {{#if loop}}checked{{/if}}> Boucle</label>
+              <label><input name="muted" type="checkbox" {{#if muted}}checked{{/if}}> Muet</label>
+              <label><input name="controls" type="checkbox" {{#if controls}}checked{{/if}}> Contrôles</label>
+            </div>
+          </div>
+
+          <div class="gmo-field gmo-field-wide gmo-targeting">
+            <label>Destinataires</label>
+            <select name="targetMode">
+              <option value="allPlayers" {{#if isAllPlayersMode}}selected{{/if}}>Tous les joueurs</option>
+              <option value="selected" {{#if isSelectedMode}}selected{{/if}}>Joueurs sélectionnés</option>
+            </select>
+
+            <div class="gmo-user-list">
+              {{#each users}}
+                <label class="gmo-user {{#unless active}}is-offline{{/unless}}">
+                  <input name="recipient" type="checkbox" value="{{id}}" {{#if selected}}checked{{/if}}>
+                  <span class="gmo-user-dot"></span>
+                  <span>{{name}}</span>
+                </label>
+              {{/each}}
+            </div>
+
+            <label class="gmo-include-gm">
+              <input name="includeGM" type="checkbox" {{#if includeGM}}checked{{/if}}>
+              Afficher aussi sur mon écran MJ
+            </label>
+          </div>
+        </div>
+
+        <footer class="gmo-card-actions">
+          <button type="button" data-action="save" title="Enregistrer sans modifier l'affichage chez les joueurs">
+            <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+          </button>
+          <button type="button" data-action="preview">
+            <i class="fa-solid fa-eye"></i> Aperçu
+          </button>
+          <button type="button" data-action="show" class="gmo-primary">
+            <i class="fa-solid fa-display"></i> {{#if active}}Mettre à jour{{else}}Afficher{{/if}}
+          </button>
+          <button type="button" data-action="close" {{#unless active}}disabled{{/unless}}>
+            <i class="fa-solid fa-eye-slash"></i> Fermer
+          </button>
+          <button type="button" data-action="delete" class="gmo-danger" title="Supprimer cette fenêtre">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </footer>
+      </article>
+    {{/each}}
+  </div>
+</section>
