@@ -1,4 +1,4 @@
-/* GEKKO — Media Overlay v0.2.0 */
+/* GEKKO — Media Overlay v0.3.0 */
 
 .gekko-media-overlay-manager .window-content {
   padding: 0;
@@ -38,7 +38,8 @@
 .gmo-file-row,
 .gmo-inline-inputs,
 .gmo-check-row,
-.gmo-floating-position-row {
+.gmo-floating-position-row,
+.gmo-range-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -112,9 +113,29 @@
 
 .gmo-field input[type="text"],
 .gmo-field input[type="number"],
+.gmo-field input[type="color"],
 .gmo-field select,
+.gmo-field textarea,
 .gmo-name {
   width: 100%;
+}
+
+.gmo-field textarea {
+  resize: vertical;
+  min-height: 90px;
+  font-family: inherit;
+}
+
+.gmo-html-content-field textarea {
+  font-family: monospace;
+  min-height: 130px;
+}
+
+.gmo-field-help {
+  display: block;
+  margin-top: 4px;
+  opacity: 0.65;
+  line-height: 1.3;
 }
 
 .gmo-file-row input {
@@ -125,12 +146,10 @@
   flex: 0 0 auto;
 }
 
-.gmo-inline-inputs input {
-  flex: 1 1 55%;
-}
-
+.gmo-inline-inputs input,
 .gmo-inline-inputs select {
-  flex: 1 1 45%;
+  flex: 1 1 50%;
+  min-width: 0;
 }
 
 .gmo-check-row {
@@ -181,6 +200,38 @@
 
 .gmo-floating-position-row button {
   flex: 0 0 auto;
+}
+
+.gmo-media-content-field,
+.gmo-text-content-field,
+.gmo-html-content-field,
+.gmo-rich-options-field,
+.gmo-video-options {
+  display: none;
+}
+
+.gmo-content-media .gmo-media-content-field,
+.gmo-content-media .gmo-video-options {
+  display: block;
+}
+
+.gmo-content-text .gmo-text-content-field,
+.gmo-content-text .gmo-rich-options-field,
+.gmo-content-html .gmo-html-content-field,
+.gmo-content-html .gmo-rich-options-field {
+  display: block;
+}
+
+.gmo-range-row input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gmo-range-row output {
+  flex: 0 0 54px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
 }
 
 .gmo-user-list {
@@ -284,28 +335,30 @@
 }
 
 .gmo-runtime-frame {
+  --gmo-background-opacity: 0.92;
   position: fixed;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
   min-width: 80px;
   min-height: 45px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 8px;
-  background: rgba(7, 8, 12, 0.92);
+  background: rgba(7, 8, 12, var(--gmo-background-opacity));
   box-shadow: 0 10px 35px rgba(0, 0, 0, 0.55);
   pointer-events: auto;
+  box-sizing: border-box;
 }
 
 .gmo-floating-frame {
   touch-action: none;
 }
 
-.gmo-floating-frame.is-dragging {
-  cursor: grabbing;
+.gmo-floating-frame.is-dragging,
+.gmo-floating-frame.is-resizing {
   box-shadow: 0 14px 44px rgba(0, 0, 0, 0.72);
 }
 
@@ -328,10 +381,85 @@
   min-height: 1px;
 }
 
+.gmo-rich-content {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px;
+  overflow: auto;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  user-select: text;
+}
+
+.gmo-html-content {
+  white-space: normal;
+}
+
+.gmo-html-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.gmo-html-content table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gmo-html-content th,
+.gmo-html-content td {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 4px 7px;
+}
+
+.gmo-html-content a {
+  text-decoration: underline;
+}
+
+.gmo-frame-none {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.gmo-frame-simple {
+  border: 2px solid rgba(220, 220, 225, 0.78);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7), 0 10px 35px rgba(0, 0, 0, 0.55);
+}
+
+.gmo-frame-metal {
+  border: 5px ridge rgba(185, 190, 198, 0.9);
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 10px 35px rgba(0, 0, 0, 0.65);
+}
+
+.gmo-frame-holo {
+  border: 2px solid rgba(90, 225, 255, 0.95);
+  border-radius: 4px;
+  box-shadow: 0 0 7px rgba(70, 220, 255, 0.95), inset 0 0 12px rgba(70, 220, 255, 0.18), 0 10px 35px rgba(0, 0, 0, 0.55);
+}
+
+.gmo-frame-terminal {
+  border: 2px solid rgba(90, 255, 120, 0.85);
+  border-radius: 2px;
+  box-shadow: inset 0 0 18px rgba(40, 255, 90, 0.08), 0 0 8px rgba(40, 255, 90, 0.35), 0 10px 35px rgba(0, 0, 0, 0.6);
+}
+
+.gmo-frame-fantasy {
+  border: 6px double rgba(205, 166, 85, 0.9);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 2px rgba(70, 45, 20, 0.8), 0 10px 35px rgba(0, 0, 0, 0.65);
+}
+
+.gmo-frame-custom {
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 .gmo-floating-chrome {
   position: absolute;
   inset: 6px 6px auto 6px;
-  z-index: 3;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -341,8 +469,9 @@
   pointer-events: none;
 }
 
-.gmo-floating-frame:hover .gmo-floating-chrome,
-.gmo-floating-frame.is-dragging .gmo-floating-chrome,
+.gmo-runtime-frame:hover .gmo-floating-chrome,
+.gmo-runtime-frame.is-dragging .gmo-floating-chrome,
+.gmo-runtime-frame.is-resizing .gmo-floating-chrome,
 .gmo-floating-chrome:focus-within {
   opacity: 1;
 }
@@ -353,10 +482,16 @@
   padding: 2px 7px;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 6px;
-  background: rgba(10, 10, 12, 0.82);
+  background: rgba(10, 10, 12, 0.9);
   color: #eee;
   box-shadow: 0 2px 8px #0008;
   pointer-events: auto;
+}
+
+.gmo-floating-chrome button span {
+  margin-left: 5px;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .gmo-drag-handle {
@@ -367,21 +502,19 @@
   cursor: grabbing;
 }
 
-.gmo-drag-handle span {
-  margin-left: 5px;
-  font-size: 11px;
-  font-weight: 700;
+.gmo-resize-handle {
+  cursor: nwse-resize;
 }
 
-.gmo-runtime-reset {
-  flex: 0 0 auto;
+.gmo-player-close {
+  cursor: pointer;
 }
 
 .gmo-controller-badge {
   margin-left: 2px;
   padding: 4px 7px;
   border-radius: 999px;
-  background: rgba(10, 10, 12, 0.82);
+  background: rgba(10, 10, 12, 0.9);
   color: #ddd;
   font: 700 9px/1 sans-serif;
   letter-spacing: 0.05em;
@@ -392,10 +525,11 @@
   position: absolute;
   left: 50%;
   bottom: 8px;
+  z-index: 4;
   transform: translateX(-50%);
   padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0, 0, 0, 0.78);
   color: white;
   font: 600 11px/1.2 sans-serif;
   letter-spacing: 0.04em;
@@ -430,7 +564,7 @@
     grid-template-columns: 1fr;
   }
 
-  .gmo-drag-handle span {
+  .gmo-floating-chrome button span {
     display: none;
   }
 }
