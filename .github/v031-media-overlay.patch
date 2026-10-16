@@ -1,0 +1,73 @@
+diff --git a/scripts/media-overlay.js b/scripts/media-overlay.js
+--- a/scripts/media-overlay.js
++++ b/scripts/media-overlay.js
+@@ -916,6 +916,21 @@
+   return `custom:${String(path).replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}`;
+ }
+ 
++function customFrameNameFromFile(path) {
++  const filename = String(path ?? "").split("/").pop() ?? "Cadre personnalisé";
++  const stem = filename.replace(/\.[^.]+$/, "");
++  return stem
++    .replace(/[-_]+/g, " ")
++    .replace(/\s+/g, " ")
++    .trim()
++    .replace(/(^|\s)\S/g, match => match.toUpperCase()) || "Cadre personnalisé";
++}
++
++function isCustomFrameImage(path) {
++  const clean = String(path ?? "").split(/[?#]/)[0];
++  return /\.(png|webp|svg|jpe?g|gif)$/i.test(clean);
++}
++
+ async function loadCustomFrames({ force = false } = {}) {
+   if (customFramesCache.size && !force) return customFramesCache;
+   const next = new Map();
+@@ -927,6 +942,26 @@
+ 
+   try {
+     const root = await FilePickerClass.browse("data", CUSTOM_FRAME_ROOT);
++
++    // Mode simple : une image déposée directement dans frames/ devient un cadre
++    // avec des réglages par défaut. Aucun frame.json n'est nécessaire.
++    for (const file of root?.files ?? []) {
++      if (!isCustomFrameImage(file)) continue;
++      const id = frameIdFromPath(file);
++      next.set(id, {
++        id,
++        name: customFrameNameFromFile(file),
++        image: resolveFoundryPath(file),
++        slice: 32,
++        width: 14,
++        padding: 10,
++        radius: 0,
++        repeat: "stretch"
++      });
++    }
++
++    // Mode avancé : un sous-dossier avec frame.json permet de personnaliser
++    // le 9-slice, l'épaisseur, le padding, le rayon et la répétition.
+     for (const dir of root?.dirs ?? []) {
+       try {
+         const listing = await FilePickerClass.browse("data", dir);
+@@ -1125,11 +1160,17 @@
+       case "preview": if (card) this.#togglePreview(card); break;
+       case "show": if (card) await this.#showOverlay(card); break;
+       case "resetPosition": if (card) await this.#resetGeometry(card); break;
+-      case "reloadFrames":
+-        await loadCustomFrames({ force: true });
++      case "reloadFrames": {
++        const frames = await loadCustomFrames({ force: true });
+         await this.render({ force: true });
+-        ui.notifications.info(`Cadres personnalisés rechargés depuis Data/${CUSTOM_FRAME_ROOT}.`);
++        const count = frames.size;
++        if (count === 0) {
++          ui.notifications.warn(`Aucun cadre personnalisé trouvé dans Data/${CUSTOM_FRAME_ROOT}/.`);
++        } else {
++          ui.notifications.info(`${count} cadre${count > 1 ? "s" : ""} personnalisé${count > 1 ? "s" : ""} chargé${count > 1 ? "s" : ""}.`);
++        }
+         break;
++      }
+       case "close": if (card) await this.#closeOverlay(card.dataset.overlayId); break;
+       case "delete": if (card) await this.#deleteOverlay(card.dataset.overlayId); break;
+       case "closeAll": await this.#closeAll(); break;
