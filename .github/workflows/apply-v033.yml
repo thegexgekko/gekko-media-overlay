@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'Apply v0.3.3 floating size and frame fix'
+    if: github.event.head_commit.message == 'Retry v0.3.3 floating size and frame fix'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,6 +22,7 @@ jobs:
           python <<'PY'
           from pathlib import Path
           import json
+          import re
 
           js_path = Path('scripts/media-overlay.js')
           js = js_path.read_text(encoding='utf-8')
@@ -53,9 +54,10 @@ jobs:
           }
 
           function setFloatingFramePosition'''
-          if old not in js:
-              raise SystemExit('JS marker floatingSizeFor not found')
-          js = js.replace(old, new, 1)
+          if 'function initialFloatingWidthFor' not in js:
+              if old not in js:
+                  raise SystemExit('JS marker floatingSizeFor not found')
+              js = js.replace(old, new, 1)
 
           old = '''    const previewData = { ...data, id: `preview-${data.id}`, darkBackdrop: data.darkBackdrop };
               const existing = document.getElementById(runtimeId(previewData.id));'''
@@ -64,9 +66,10 @@ jobs:
                 previewData.floatWidth = initialFloatingWidthFor(previewData);
               }
               const existing = document.getElementById(runtimeId(previewData.id));'''
-          if old not in js:
-              raise SystemExit('JS marker previewData not found')
-          js = js.replace(old, new, 1)
+          if 'previewData.floatWidth = initialFloatingWidthFor(previewData);' not in js:
+              if old not in js:
+                  raise SystemExit('JS marker previewData not found')
+              js = js.replace(old, new, 1)
 
           old = '''    overlay = normalizeOverlay(overlays[overlay.id]);
               overlay.active = true;
@@ -77,9 +80,10 @@ jobs:
               }
               overlay.active = true;
               overlay.activeRecipients = targets;'''
-          if old not in js:
-              raise SystemExit('JS marker showOverlay not found')
-          js = js.replace(old, new, 1)
+          if 'if (!overlay.active && overlay.placementMode !== "fixed")' not in js:
+              if old not in js:
+                  raise SystemExit('JS marker showOverlay not found')
+              js = js.replace(old, new, 1)
 
           old = '''    overlay.floatX = x;
               overlay.floatY = y;
@@ -92,49 +96,28 @@ jobs:
               }
               const w = overlay.floatWidth;
               const h = overlay.contentType === "media" ? null : overlay.floatHeight;'''
-          if old not in js:
-              raise SystemExit('JS marker resetGeometry not found')
-          js = js.replace(old, new, 1)
+          reset_marker = '''    overlay.floatY = y;
+              if (overlay.placementMode !== "fixed") {
+                overlay.floatWidth = initialFloatingWidthFor(overlay);
+              }'''
+          if reset_marker not in js:
+              if old not in js:
+                  raise SystemExit('JS marker resetGeometry not found')
+              js = js.replace(old, new, 1)
 
-          old = '''  if (def.mode === "overlay") {
-            frame.classList.add("gmo-frame-custom-overlay");
-            frame.style.setProperty("--gmo-custom-frame-image", `url("${image.replaceAll('"', '%22')}")`);
-            frame.style.border = "0";
-            frame.style.padding = "0";
-            frame.style.borderRadius = "0";
-            return;
-          }'''
-          new = '''  if (def.mode === "overlay") {
-            frame.classList.add("gmo-frame-custom-overlay");
-            frame.style.setProperty("--gmo-custom-frame-image", `url("${image.replaceAll('"', '%22')}")`);
-            frame.style.setProperty("--gmo-custom-frame-outset", `${safeFrameValue(def.outset, 6, 0, 25)}%`);
-            frame.style.border = "0";
-            frame.style.padding = "0";
-            frame.style.borderRadius = "0";
-            return;
-          }'''
-          if old not in js:
-              raise SystemExit('JS marker custom overlay not found')
-          js = js.replace(old, new, 1)
+          if '--gmo-custom-frame-outset' not in js:
+              pattern = r'(\s*frame\.style\.setProperty\("--gmo-custom-frame-image",[^\n]+\);\n)'
+              replacement = r'\1    frame.style.setProperty("--gmo-custom-frame-outset", `${safeFrameValue(def.outset, 6, 0, 25)}%`);\n'
+              js, count = re.subn(pattern, replacement, js, count=1)
+              if count != 1:
+                  raise SystemExit('JS custom frame insertion point not found')
 
           js_path.write_text(js, encoding='utf-8')
 
           css_path = Path('styles/media-overlay.css')
           css = css_path.read_text(encoding='utf-8')
-          css = css.replace('/* GEKKO — Media Overlay v0.3.0 */', '/* GEKKO — Media Overlay v0.3.3 */', 1)
-          old = '''/* Cadres personnalisés simples : image complète superposée à la fenêtre. */
-          .gmo-frame-custom-overlay::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 4;
-            background-image: var(--gmo-custom-frame-image);
-            background-position: center;
-            background-size: 100% 100%;
-            background-repeat: no-repeat;
-            pointer-events: none;
-          }'''
-          new = '''/* Cadres personnalisés simples : le visuel est agrandi autour du média
+          css = re.sub(r'/\* GEKKO — Media Overlay v[^*]+\*/', '/* GEKKO — Media Overlay v0.3.3 */', css, count=1)
+          new_css = '''/* Cadres personnalisés simples : le visuel est agrandi autour du média
              afin que la bordure décorative encadre le contenu au lieu de le recouvrir. */
           .gmo-frame-custom-overlay {
             overflow: visible;
@@ -151,17 +134,19 @@ jobs:
             background-repeat: no-repeat;
             pointer-events: none;
           }'''
-          if old not in css:
-              raise SystemExit('CSS custom frame marker not found')
-          css = css.replace(old, new, 1)
+          if 'inset: calc(var(--gmo-custom-frame-outset, 6%) * -1);' not in css:
+              pattern = re.compile(r'/\* Cadres personnalisés simples :.*?\*/\s*\.gmo-frame-custom-overlay::after\s*\{.*?\n\}', re.S)
+              css, count = pattern.subn(new_css, css, count=1)
+              if count != 1:
+                  raise SystemExit('CSS custom frame block not found')
           css_path.write_text(css, encoding='utf-8')
 
           readme_path = Path('README.md')
           readme = readme_path.read_text(encoding='utf-8')
-          old = "Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et superposée à la fenêtre, sans découpage 9-slice."
-          new = "Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et dessinée autour de la fenêtre : la bordure décorative encadre le média au lieu de venir le recouvrir."
-          if old in readme:
-              readme = readme.replace(old, new, 1)
+          old_text = "Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et superposée à la fenêtre, sans découpage 9-slice."
+          new_text = "Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et dessinée autour de la fenêtre : la bordure décorative encadre le média au lieu de venir le recouvrir."
+          if old_text in readme:
+              readme = readme.replace(old_text, new_text, 1)
           readme_path.write_text(readme, encoding='utf-8')
 
           module_path = Path('module.json')
