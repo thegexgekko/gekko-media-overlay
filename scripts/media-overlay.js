@@ -487,7 +487,7 @@ function applyFrameStyle(frame, overlay) {
   frame.classList.add("gmo-frame-custom");
 
   // Mode simple (image déposée directement dans frames/) : on conserve le dessin
-  // complet et on le superpose à la fenêtre, sans découpage 9-slice arbitraire.
+  // complet et on l'agrandit autour de la fenêtre, sans découpage 9-slice arbitraire.
   if (def.mode === "overlay") {
     frame.classList.add("gmo-frame-custom-overlay");
     frame.style.setProperty("--gmo-custom-frame-image", `url("${image.replaceAll('"', '%22')}")`);
@@ -757,7 +757,12 @@ function renderRuntimeOverlay(rawOverlay, { preview = false, controllerOnly = fa
   } else {
     frame.classList.add("gmo-floating-frame");
     const pos = floatingPositionFor(overlay);
-    const size = floatingSizeFor(overlay);
+    if (overlay.resetFloatingSize && overlay.placementMode === "player") {
+      clearPlayerSize(overlay.id);
+    }
+    const size = overlay.resetFloatingSize
+      ? { w: initialFloatingWidthFor(overlay), h: overlay.floatHeight }
+      : floatingSizeFor(overlay);
     setFloatingFramePosition(frame, pos.x, pos.y, { clampToViewport: false });
     setFloatingFrameSize(frame, overlay, size.w, size.h);
     requestAnimationFrame(() => {
@@ -1318,7 +1323,8 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const overlays = getStoredOverlays();
     overlay = normalizeOverlay(overlays[overlay.id]);
-    if (!overlay.active && overlay.placementMode !== "fixed") {
+    const resetFloatingSize = !overlay.active && overlay.placementMode !== "fixed";
+    if (resetFloatingSize) {
       overlay.floatWidth = initialFloatingWidthFor(overlay);
     }
     overlay.active = true;
@@ -1326,7 +1332,7 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     overlays[overlay.id] = overlay;
     await setStoredOverlays(overlays);
 
-    broadcastPacket({ action: "sync", overlay, targets });
+    broadcastPacket({ action: "sync", overlay: { ...overlay, resetFloatingSize }, targets });
     const extra = overlay.placementMode === "gm" && !targets.includes(game.user.id)
       ? " Une copie de contrôle est affichée sur ton écran pour le placement et la taille."
       : "";
