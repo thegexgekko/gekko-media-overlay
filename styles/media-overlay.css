@@ -602,7 +602,7 @@
 .gmo-frame-custom-auto::after {
   content: "";
   position: absolute;
-  inset: calc(var(--gmo-custom-frame-width, 18px) * -1);
+  inset: calc(-1 * (var(--gmo-custom-frame-width, 18px) + var(--gmo-custom-frame-gap, 8px)));
   z-index: 4;
   border-style: solid;
   border-width: var(--gmo-custom-frame-width, 18px);
