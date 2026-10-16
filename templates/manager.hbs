@@ -2,7 +2,7 @@
   <header class="gmo-manager-toolbar">
     <div>
       <h2>Fenêtres média</h2>
-      <p>Chaque fenêtre possède son propre média, sa taille, sa position et ses destinataires.</p>
+      <p>Chaque fenêtre possède son propre média, sa taille, son placement et ses destinataires.</p>
     </div>
     <div class="gmo-toolbar-actions">
       <button type="button" data-action="new">
@@ -24,7 +24,7 @@
 
   <div class="gmo-overlay-list">
     {{#each overlays}}
-      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}}" data-overlay-id="{{id}}">
+      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}} {{#if isFixedMode}}gmo-placement-fixed{{/if}} {{#if isGMFloatingMode}}gmo-placement-gm gmo-placement-floating{{/if}} {{#if isPlayerFloatingMode}}gmo-placement-player gmo-placement-floating{{/if}}" data-overlay-id="{{id}}">
         <div class="gmo-card-header">
           <input class="gmo-name" name="name" type="text" value="{{name}}" aria-label="Nom de la fenêtre">
           <span class="gmo-status {{#if active}}is-active{{/if}}">
@@ -68,13 +68,43 @@
             </div>
           </div>
 
+          <div class="gmo-field gmo-field-wide">
+            <label>Mode de positionnement</label>
+            <select name="placementMode">
+              {{#each placementModes}}
+                <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+            <div class="gmo-placement-hint gmo-hint-fixed">
+              La fenêtre reste ancrée au point choisi.
+            </div>
+            <div class="gmo-placement-hint gmo-hint-gm">
+              Le MJ déplace la fenêtre sur son écran ; sa position est synchronisée en direct chez les joueurs.
+            </div>
+            <div class="gmo-placement-hint gmo-hint-player">
+              Chaque joueur déplace sa propre copie indépendamment. Sa position est mémorisée localement dans son navigateur.
+            </div>
+          </div>
+
           <div class="gmo-field">
-            <label>Position</label>
+            <label>Position fixe / initiale</label>
             <select name="position">
               {{#each positions}}
                 <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
               {{/each}}
             </select>
+          </div>
+
+          <div class="gmo-field gmo-floating-status">
+            <label>Position flottante</label>
+            <div class="gmo-floating-position-row">
+              <span data-floating-coordinates>X {{floatX}} % · Y {{floatY}} %</span>
+              <button type="button" data-action="resetPosition" title="Réinitialiser au point initial">
+                <i class="fa-solid fa-crosshairs"></i> Réinitialiser
+              </button>
+            </div>
+            <input name="floatX" type="hidden" value="{{floatX}}">
+            <input name="floatY" type="hidden" value="{{floatY}}">
           </div>
 
           <div class="gmo-field gmo-options-field">
