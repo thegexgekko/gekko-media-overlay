@@ -2,8 +2,8 @@
   "id": "gekko-media-overlay",
   "type": "module",
   "title": "GEKKO — Media Overlay",
-  "description": "Affiche des images et vidéos dans plusieurs fenêtres indépendantes au-dessus de la scène, avec ciblage par joueur et contrôle MJ.",
-  "version": "0.1.8",
+  "description": "Affiche des images et vidéos dans plusieurs fenêtres indépendantes au-dessus de la scène, avec ciblage par joueur, placement fixe ou flottant et contrôle MJ.",
+  "version": "0.2.0",
   "authors": [
     {
       "name": "GEKKO"
@@ -15,7 +15,7 @@
   },
   "url": "https://github.com/thegexgekko/gekko-media-overlay",
   "manifest": "https://raw.githubusercontent.com/thegexgekko/gekko-media-overlay/main/module.json",
-  "download": "https://github.com/thegexgekko/gekko-media-overlay/releases/download/v0.1.8/gekko-media-overlay-0.1.8.zip",
+  "download": "https://github.com/thegexgekko/gekko-media-overlay/releases/download/v0.2.0/gekko-media-overlay-0.2.0.zip",
   "esmodules": [
     "scripts/media-overlay.js"
   ],
