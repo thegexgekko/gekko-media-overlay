@@ -34,7 +34,24 @@ Pour éviter qu'une mise à jour du module supprime les fichiers personnels, les
 
 `Data/gekko-media-overlay/frames/`
 
-Créer un sous-dossier par cadre, par exemple :
+### Ajout simple — recommandé
+
+Déposer directement une image PNG, WebP, SVG, JPG ou GIF dans le dossier `frames`. Aucun fichier JSON n'est nécessaire.
+
+```text
+Data/
+└── gekko-media-overlay/
+    └── frames/
+        ├── holo-bleu.png
+        ├── cadre-metal.webp
+        └── nova-frame.svg
+```
+
+Le nom affiché est dérivé automatiquement du nom du fichier et le module applique des réglages de cadre par défaut.
+
+### Ajout avancé — optionnel
+
+Pour régler précisément le 9-slice, l'épaisseur, le padding, le rayon ou la répétition, créer un sous-dossier contenant une image et un `frame.json` :
 
 ```text
 Data/
@@ -59,14 +76,7 @@ Exemple de `frame.json` :
 }
 ```
 
-- `image` : image PNG, WebP ou SVG utilisée comme `border-image`.
-- `slice` : découpe 9-slice du cadre.
-- `width` : épaisseur du cadre en pixels.
-- `padding` : espace intérieur entre le cadre et le contenu.
-- `radius` : rayon des coins.
-- `repeat` : `stretch`, `repeat`, `round` ou `space`.
-
-Après avoir ajouté ou modifié un cadre, ouvrir le gestionnaire et cliquer sur **Cadres perso** pour recharger la liste.
+Après avoir ajouté ou modifié un cadre, ouvrir le gestionnaire et cliquer sur **Cadres perso** pour recharger la liste. La notification indique maintenant combien de cadres personnalisés ont réellement été détectés.
 
 ## HTML simple
 
