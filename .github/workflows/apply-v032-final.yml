@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'Run final v0.3.2 frame patch v2'
+    if: github.event.head_commit.message == 'Run final v0.3.2 frame patch v3'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,42 +20,24 @@ jobs:
         shell: bash
         run: |
           patch -p1 < .github/v032.patch
-
           python <<'PY'
           from pathlib import Path
           p = Path('styles/media-overlay.css')
           s = p.read_text(encoding='utf-8')
           marker = "/* Contrôles runtime : restent toujours opaques, même si le contenu ne l'est pas. */"
-          addition = '''/* Les cadres simples sont rendus comme une surcouche complète. Cela conserve
-   leur dessin au lieu de les découper arbitrairement en 9-slice. */
-.gmo-frame-custom-overlay::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  background-image: var(--gmo-custom-frame-image);
-  background-position: center;
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  pointer-events: none;
-}
-
-'''
+          addition = "/* Les cadres simples sont rendus comme une surcouche complète. Cela conserve\n   leur dessin au lieu de les découper arbitrairement en 9-slice. */\n.gmo-frame-custom-overlay::after {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  z-index: 4;\n  background-image: var(--gmo-custom-frame-image);\n  background-position: center;\n  background-size: 100% 100%;\n  background-repeat: no-repeat;\n  pointer-events: none;\n}\n\n"
           if '.gmo-frame-custom-overlay::after' not in s:
               if marker not in s:
                   raise SystemExit('CSS insertion marker not found')
               s = s.replace(marker, addition + marker, 1)
           p.write_text(s, encoding='utf-8')
           PY
-
           node --check scripts/media-overlay.js
           python -m json.tool module.json >/dev/null
-
           rm -f .github/v032.patch
           rm -f .github/workflows/apply-v032.yml
           rm -f .github/workflows/apply-v032-patch.yml
           rm -f .github/workflows/apply-v032-final.yml
-
           git config user.name "thegexgekko"
           git config user.email "thegexgekko@gmail.com"
           git add -A
