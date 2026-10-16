@@ -1,0 +1,183 @@
+name: Apply v0.3.3 Fixes
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply v0.3.3 floating size and frame fix'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply v0.3.3 changes
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          js_path = Path('scripts/media-overlay.js')
+          js = js_path.read_text(encoding='utf-8')
+
+          old = '''function floatingSizeFor(overlay) {
+            if (overlay.placementMode === "player") {
+              const local = getPlayerSize(overlay.id);
+              if (local) return local;
+            }
+            return { w: overlay.floatWidth, h: overlay.floatHeight };
+          }
+
+          function setFloatingFramePosition'''
+          new = '''function floatingSizeFor(overlay) {
+            if (overlay.placementMode === "player") {
+              const local = getPlayerSize(overlay.id);
+              if (local) return local;
+            }
+            return { w: overlay.floatWidth, h: overlay.floatHeight };
+          }
+
+          function initialFloatingWidthFor(overlay) {
+            const width = Math.max(1, safeNumber(overlay.width, DEFAULT_OVERLAY.width));
+            if (overlay.widthUnit === "px") {
+              const viewportWidth = Math.max(1, window.innerWidth || 1);
+              return clamp((width / viewportWidth) * 100, 8, 96);
+            }
+            return clamp(width, 8, 96);
+          }
+
+          function setFloatingFramePosition'''
+          if old not in js:
+              raise SystemExit('JS marker floatingSizeFor not found')
+          js = js.replace(old, new, 1)
+
+          old = '''    const previewData = { ...data, id: `preview-${data.id}`, darkBackdrop: data.darkBackdrop };
+              const existing = document.getElementById(runtimeId(previewData.id));'''
+          new = '''    const previewData = { ...data, id: `preview-${data.id}`, darkBackdrop: data.darkBackdrop };
+              if (previewData.placementMode !== "fixed") {
+                previewData.floatWidth = initialFloatingWidthFor(previewData);
+              }
+              const existing = document.getElementById(runtimeId(previewData.id));'''
+          if old not in js:
+              raise SystemExit('JS marker previewData not found')
+          js = js.replace(old, new, 1)
+
+          old = '''    overlay = normalizeOverlay(overlays[overlay.id]);
+              overlay.active = true;
+              overlay.activeRecipients = targets;'''
+          new = '''    overlay = normalizeOverlay(overlays[overlay.id]);
+              if (!overlay.active && overlay.placementMode !== "fixed") {
+                overlay.floatWidth = initialFloatingWidthFor(overlay);
+              }
+              overlay.active = true;
+              overlay.activeRecipients = targets;'''
+          if old not in js:
+              raise SystemExit('JS marker showOverlay not found')
+          js = js.replace(old, new, 1)
+
+          old = '''    overlay.floatX = x;
+              overlay.floatY = y;
+              const w = overlay.floatWidth;
+              const h = overlay.contentType === "media" ? null : overlay.floatHeight;'''
+          new = '''    overlay.floatX = x;
+              overlay.floatY = y;
+              if (overlay.placementMode !== "fixed") {
+                overlay.floatWidth = initialFloatingWidthFor(overlay);
+              }
+              const w = overlay.floatWidth;
+              const h = overlay.contentType === "media" ? null : overlay.floatHeight;'''
+          if old not in js:
+              raise SystemExit('JS marker resetGeometry not found')
+          js = js.replace(old, new, 1)
+
+          old = '''  if (def.mode === "overlay") {
+            frame.classList.add("gmo-frame-custom-overlay");
+            frame.style.setProperty("--gmo-custom-frame-image", `url("${image.replaceAll('"', '%22')}")`);
+            frame.style.border = "0";
+            frame.style.padding = "0";
+            frame.style.borderRadius = "0";
+            return;
+          }'''
+          new = '''  if (def.mode === "overlay") {
+            frame.classList.add("gmo-frame-custom-overlay");
+            frame.style.setProperty("--gmo-custom-frame-image", `url("${image.replaceAll('"', '%22')}")`);
+            frame.style.setProperty("--gmo-custom-frame-outset", `${safeFrameValue(def.outset, 6, 0, 25)}%`);
+            frame.style.border = "0";
+            frame.style.padding = "0";
+            frame.style.borderRadius = "0";
+            return;
+          }'''
+          if old not in js:
+              raise SystemExit('JS marker custom overlay not found')
+          js = js.replace(old, new, 1)
+
+          js_path.write_text(js, encoding='utf-8')
+
+          css_path = Path('styles/media-overlay.css')
+          css = css_path.read_text(encoding='utf-8')
+          css = css.replace('/* GEKKO — Media Overlay v0.3.0 */', '/* GEKKO — Media Overlay v0.3.3 */', 1)
+          old = '''/* Cadres personnalisés simples : image complète superposée à la fenêtre. */
+          .gmo-frame-custom-overlay::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 4;
+            background-image: var(--gmo-custom-frame-image);
+            background-position: center;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            pointer-events: none;
+          }'''
+          new = '''/* Cadres personnalisés simples : le visuel est agrandi autour du média
+             afin que la bordure décorative encadre le contenu au lieu de le recouvrir. */
+          .gmo-frame-custom-overlay {
+            overflow: visible;
+          }
+
+          .gmo-frame-custom-overlay::after {
+            content: "";
+            position: absolute;
+            inset: calc(var(--gmo-custom-frame-outset, 6%) * -1);
+            z-index: 4;
+            background-image: var(--gmo-custom-frame-image);
+            background-position: center;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            pointer-events: none;
+          }'''
+          if old not in css:
+              raise SystemExit('CSS custom frame marker not found')
+          css = css.replace(old, new, 1)
+          css_path.write_text(css, encoding='utf-8')
+
+          readme_path = Path('README.md')
+          readme = readme_path.read_text(encoding='utf-8')
+          old = "Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et superposée à la fenêtre, sans découpage 9-slice."
+          new = "Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et dessinée autour de la fenêtre : la bordure décorative encadre le média au lieu de venir le recouvrir."
+          if old in readme:
+              readme = readme.replace(old, new, 1)
+          readme_path.write_text(readme, encoding='utf-8')
+
+          module_path = Path('module.json')
+          module = json.loads(module_path.read_text(encoding='utf-8'))
+          module['version'] = '0.3.3'
+          module['download'] = 'https://github.com/thegexgekko/gekko-media-overlay/releases/download/v0.3.3/gekko-media-overlay-0.3.3.zip'
+          module_path.write_text(json.dumps(module, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          node --check scripts/media-overlay.js
+          python -m json.tool module.json >/dev/null
+
+          rm -f .github/workflows/apply-v033.yml
+
+          git config user.name "thegexgekko"
+          git config user.email "thegexgekko@gmail.com"
+          git add -A
+          git commit -m "Fix floating initial size and custom frame placement in v0.3.3"
+          git push
