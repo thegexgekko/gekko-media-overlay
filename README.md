@@ -47,7 +47,7 @@ Data/
         └── nova-frame.svg
 ```
 
-Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et superposée à la fenêtre, sans découpage 9-slice.
+Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et dessinée autour de la fenêtre : la bordure décorative encadre le média au lieu de venir le recouvrir.
 
 ### Ajout avancé — optionnel
 

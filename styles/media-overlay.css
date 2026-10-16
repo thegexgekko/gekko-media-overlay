@@ -1,4 +1,4 @@
-/* GEKKO — Media Overlay v0.3.0 */
+/* GEKKO — Media Overlay v0.3.3 */
 
 .gekko-media-overlay-manager .window-content {
   padding: 0;
@@ -588,11 +588,16 @@
 }
 
 
-/* Cadres personnalisés simples : image complète superposée à la fenêtre. */
+/* Cadres personnalisés simples : le visuel est agrandi autour du média
+   afin que la bordure décorative encadre le contenu au lieu de le recouvrir. */
+.gmo-frame-custom-overlay {
+  overflow: visible;
+}
+
 .gmo-frame-custom-overlay::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: calc(var(--gmo-custom-frame-outset, 6%) * -1);
   z-index: 4;
   background-image: var(--gmo-custom-frame-image);
   background-position: center;

@@ -367,6 +367,15 @@ function floatingSizeFor(overlay) {
   return { w: overlay.floatWidth, h: overlay.floatHeight };
 }
 
+function initialFloatingWidthFor(overlay) {
+  const width = Math.max(1, safeNumber(overlay.width, DEFAULT_OVERLAY.width));
+  if (overlay.widthUnit === "px") {
+    const viewportWidth = Math.max(1, window.innerWidth || 1);
+    return clamp((width / viewportWidth) * 100, 8, 96);
+  }
+  return clamp(width, 8, 96);
+}
+
 function setFloatingFramePosition(frame, x, y, { clampToViewport = true } = {}) {
   let nextX = clamp(Number(x) || 50, 0, 100);
   let nextY = clamp(Number(y) || 50, 0, 100);
@@ -482,6 +491,7 @@ function applyFrameStyle(frame, overlay) {
   if (def.mode === "overlay") {
     frame.classList.add("gmo-frame-custom-overlay");
     frame.style.setProperty("--gmo-custom-frame-image", `url("${image.replaceAll('"', '%22')}")`);
+    frame.style.setProperty("--gmo-custom-frame-outset", `${safeFrameValue(def.outset, 6, 0, 25)}%`);
     frame.style.border = "0";
     frame.style.padding = "0";
     frame.style.borderRadius = "0";
@@ -1286,6 +1296,9 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
     const previewData = { ...data, id: `preview-${data.id}`, darkBackdrop: data.darkBackdrop };
+    if (previewData.placementMode !== "fixed") {
+      previewData.floatWidth = initialFloatingWidthFor(previewData);
+    }
     const existing = document.getElementById(runtimeId(previewData.id));
     if (existing) existing.remove();
     else renderRuntimeOverlay(previewData, { preview: true });
@@ -1305,6 +1318,9 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
 
     const overlays = getStoredOverlays();
     overlay = normalizeOverlay(overlays[overlay.id]);
+    if (!overlay.active && overlay.placementMode !== "fixed") {
+      overlay.floatWidth = initialFloatingWidthFor(overlay);
+    }
     overlay.active = true;
     overlay.activeRecipients = targets;
     overlays[overlay.id] = overlay;
@@ -1323,6 +1339,9 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     const [x, y] = anchorPosition(overlay.position);
     overlay.floatX = x;
     overlay.floatY = y;
+    if (overlay.placementMode !== "fixed") {
+      overlay.floatWidth = initialFloatingWidthFor(overlay);
+    }
     const w = overlay.floatWidth;
     const h = overlay.contentType === "media" ? null : overlay.floatHeight;
 
