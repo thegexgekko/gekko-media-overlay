@@ -1,4 +1,4 @@
-/* GEKKO — Media Overlay v0.3.3 */
+/* GEKKO — Media Overlay v0.3.5 */
 
 .gekko-media-overlay-manager .window-content {
   padding: 0;
@@ -202,6 +202,7 @@
   flex: 0 0 auto;
 }
 
+.gmo-custom-frame-options,
 .gmo-media-content-field,
 .gmo-text-content-field,
 .gmo-html-content-field,
@@ -212,6 +213,10 @@
 
 .gmo-content-media .gmo-media-content-field,
 .gmo-content-media .gmo-video-options {
+  display: block;
+}
+
+.gmo-frame-custom-selected .gmo-custom-frame-options {
   display: block;
 }
 
@@ -588,20 +593,59 @@
 }
 
 
-/* Cadres personnalisés simples : le visuel est agrandi autour du média
-   afin que la bordure décorative encadre le contenu au lieu de le recouvrir. */
-.gmo-frame-custom-overlay {
+/* Cadres personnalisés simples : 9-slice automatique.
+   Les coins restent intacts, les bords s'étirent et le centre reste libre. */
+.gmo-frame-custom-auto {
   overflow: visible;
 }
 
-.gmo-frame-custom-overlay::after {
+.gmo-frame-custom-auto::after {
   content: "";
   position: absolute;
-  inset: calc(var(--gmo-custom-frame-outset, 6%) * -1);
+  inset: calc(var(--gmo-custom-frame-width, 18px) * -1);
   z-index: 4;
-  background-image: var(--gmo-custom-frame-image);
-  background-position: center;
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
+  border-style: solid;
+  border-width: var(--gmo-custom-frame-width, 18px);
+  border-image-source: var(--gmo-custom-frame-image);
+  border-image-slice: var(--gmo-custom-frame-slice, 12%);
+  border-image-width: 1;
+  border-image-repeat: stretch;
+  box-sizing: border-box;
   pointer-events: none;
+}
+
+
+/* Poignée de redimensionnement : coin inférieur droit. */
+.gmo-resize-corner {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  z-index: 7;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  background: rgba(10, 10, 12, 0.88);
+  color: #eee;
+  box-shadow: 0 2px 8px #0008;
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.gmo-runtime-frame:hover .gmo-resize-corner,
+.gmo-runtime-frame.is-resizing .gmo-resize-corner,
+.gmo-resize-corner:focus-visible {
+  opacity: 1;
+}
+
+.gmo-runtime-frame.is-resizing .gmo-resize-corner {
+  transform: scale(1.08);
 }

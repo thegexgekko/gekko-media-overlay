@@ -9,7 +9,7 @@ Module Foundry VTT V14 permettant au MJ d'afficher des images, vidéos, textes e
 - Ciblage de tous les joueurs ou de joueurs sélectionnés.
 - Trois modes de placement : fixe, flottant contrôlé par le MJ, flottant contrôlé par chaque joueur.
 - Déplacement direct à la souris.
-- Redimensionnement direct des fenêtres flottantes.
+- Redimensionnement direct par une poignée placée en bas à droite des fenêtres flottantes.
 - Ratio des images et vidéos toujours conservé lors du redimensionnement.
 - Taille et position synchronisées en direct en mode MJ.
 - Taille et position indépendantes et mémorisées localement en mode joueur.
@@ -47,7 +47,7 @@ Data/
         └── nova-frame.svg
 ```
 
-Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et dessinée autour de la fenêtre : la bordure décorative encadre le média au lieu de venir le recouvrir.
+Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, le module applique automatiquement un découpage 9-slice : les quatre coins restent intacts et seuls les bords s'étirent pour s'adapter au ratio du média. L'épaisseur peut être ajustée directement dans le gestionnaire.
 
 ### Ajout avancé — optionnel
 
@@ -86,4 +86,4 @@ Le mode HTML autorise volontairement un sous-ensemble limité : titres, paragrap
 
 Le workflow GitHub Actions `.github/workflows/release.yml` crée automatiquement une release quand une nouvelle version de `module.json` est poussée sur `main`, si le tag correspondant n'existe pas encore.
 
-Version actuelle : **0.3.4**.
+Version actuelle : **0.3.5**.

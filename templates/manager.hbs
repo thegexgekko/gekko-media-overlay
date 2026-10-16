@@ -27,7 +27,7 @@
 
   <div class="gmo-overlay-list">
     {{#each overlays}}
-      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}} {{#if isFixedMode}}gmo-placement-fixed{{else}}gmo-placement-floating{{/if}} {{#if isGMFloatingMode}}gmo-placement-gm{{/if}} {{#if isPlayerFloatingMode}}gmo-placement-player{{/if}} {{#if isMediaContent}}gmo-content-media{{/if}} {{#if isTextContent}}gmo-content-text{{/if}} {{#if isHtmlContent}}gmo-content-html{{/if}}" data-overlay-id="{{id}}">
+      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}} {{#if isFixedMode}}gmo-placement-fixed{{else}}gmo-placement-floating{{/if}} {{#if isGMFloatingMode}}gmo-placement-gm{{/if}} {{#if isPlayerFloatingMode}}gmo-placement-player{{/if}} {{#if isMediaContent}}gmo-content-media{{/if}} {{#if isTextContent}}gmo-content-text{{/if}} {{#if isHtmlContent}}gmo-content-html{{/if}} {{#if isCustomFrame}}gmo-frame-custom-selected{{/if}}" data-overlay-id="{{id}}">
         <div class="gmo-card-header">
           <input class="gmo-name" name="name" type="text" value="{{name}}" aria-label="Nom de la fenêtre">
           <span class="gmo-status {{#if active}}is-active{{/if}}">
@@ -62,6 +62,15 @@
                 </optgroup>
               {{/if}}
             </select>
+          </div>
+
+          <div class="gmo-field gmo-custom-frame-options">
+            <label>Épaisseur du cadre personnalisé</label>
+            <div class="gmo-range-row">
+              <input name="customFrameThickness" type="range" min="6" max="48" step="1" value="{{customFrameThickness}}">
+              <output>{{customFrameThickness}} px</output>
+            </div>
+            <small class="gmo-field-help">Ajuste l'épaisseur du 9-slice automatique autour du média.</small>
           </div>
 
           <div class="gmo-field gmo-field-wide gmo-media-content-field">

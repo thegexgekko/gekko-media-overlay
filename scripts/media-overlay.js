@@ -37,6 +37,7 @@ const DEFAULT_OVERLAY = Object.freeze({
   backgroundOpacity: 92,
   frameStyle: "none",
   customFrame: null,
+  customFrameThickness: 18,
   allowPlayerClose: false,
   autoplay: true,
   loop: false,
@@ -117,6 +118,7 @@ function normalizeOverlay(data = {}) {
   overlay.textColor = typeof overlay.textColor === "string" && overlay.textColor ? overlay.textColor : "#ffffff";
   overlay.frameStyle = typeof overlay.frameStyle === "string" && overlay.frameStyle ? overlay.frameStyle : "none";
   overlay.customFrame = overlay.customFrame && typeof overlay.customFrame === "object" ? clone(overlay.customFrame) : null;
+  overlay.customFrameThickness = clamp(safeNumber(overlay.customFrameThickness, 18), 4, 64);
   overlay.allowPlayerClose = Boolean(overlay.allowPlayerClose);
   overlay.preserveRatio = overlay.contentType === "media" ? true : Boolean(overlay.preserveRatio);
   return overlay;
@@ -486,12 +488,13 @@ function applyFrameStyle(frame, overlay) {
 
   frame.classList.add("gmo-frame-custom");
 
-  // Mode simple (image déposée directement dans frames/) : on conserve le dessin
-  // complet et on l'agrandit autour de la fenêtre, sans découpage 9-slice arbitraire.
-  if (def.mode === "overlay") {
-    frame.classList.add("gmo-frame-custom-overlay");
+  // Mode simple : 9-slice automatique. Les coins restent intacts et seuls les bords
+  // s'étirent pour suivre le ratio de la fenêtre. Aucun frame.json n'est nécessaire.
+  if (def.mode === "overlay" || def.mode === "auto9") {
+    frame.classList.add("gmo-frame-custom-auto");
     frame.style.setProperty("--gmo-custom-frame-image", `url("${image.replaceAll('"', '%22')}")`);
-    frame.style.setProperty("--gmo-custom-frame-outset", `${safeFrameValue(def.outset, 6, 0, 25)}%`);
+    frame.style.setProperty("--gmo-custom-frame-slice", `${safeFrameValue(def.slicePercent, 12, 4, 30)}%`);
+    frame.style.setProperty("--gmo-custom-frame-width", `${safeFrameValue(overlay.customFrameThickness, 18, 4, 64)}px`);
     frame.style.border = "0";
     frame.style.padding = "0";
     frame.style.borderRadius = "0";
@@ -536,17 +539,6 @@ function addRuntimeChrome(frame, overlay, { preview = false, controllerOnly = fa
     setupDragging(handle, frame, overlay);
   }
 
-  if (canResize) {
-    const resize = document.createElement("button");
-    resize.type = "button";
-    resize.className = "gmo-resize-handle";
-    resize.title = overlay.contentType === "media"
-      ? "Redimensionner (ratio de l’image/vidéo conservé)"
-      : "Redimensionner";
-    resize.innerHTML = '<i class="fa-solid fa-up-right-and-down-left-from-center"></i><span>Taille</span>';
-    chrome.appendChild(resize);
-    setupResizing(resize, frame, overlay);
-  }
 
   if (canDrag) {
     const reset = document.createElement("button");
@@ -593,6 +585,19 @@ function addRuntimeChrome(frame, overlay, { preview = false, controllerOnly = fa
   }
 
   frame.appendChild(chrome);
+
+  if (canResize) {
+    const resize = document.createElement("button");
+    resize.type = "button";
+    resize.className = "gmo-resize-corner";
+    resize.title = overlay.contentType === "media"
+      ? "Redimensionner depuis le coin inférieur droit (ratio conservé)"
+      : "Redimensionner depuis le coin inférieur droit";
+    resize.setAttribute("aria-label", "Redimensionner");
+    resize.innerHTML = '<i class="fa-solid fa-up-right-and-down-left-from-center"></i>';
+    frame.appendChild(resize);
+    setupResizing(resize, frame, overlay);
+  }
 }
 
 function setupDragging(handle, frame, overlay) {
@@ -655,30 +660,29 @@ function setupResizing(handle, frame, overlay) {
     event.preventDefault();
     event.stopPropagation();
 
-    const rect = frame.getBoundingClientRect();
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const startW = rect.width;
-    const startH = rect.height;
-    const ratio = startH > 0 ? startW / startH : 16 / 9;
+    const startRect = frame.getBoundingClientRect();
+    const anchorLeft = startRect.left;
+    const anchorTop = startRect.top;
+    const ratio = startRect.height > 0 ? startRect.width / startRect.height : 16 / 9;
     frame.classList.add("is-resizing");
     handle.setPointerCapture?.(event.pointerId);
 
     let latest = {
+      x: Number(frame.dataset.floatX) || 50,
+      y: Number(frame.dataset.floatY) || 50,
       w: Number(frame.dataset.floatWidth) || overlay.floatWidth,
       h: frame.dataset.floatHeight ? Number(frame.dataset.floatHeight) : null
     };
     let rafPending = false;
 
     const onMove = moveEvent => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaY = moveEvent.clientY - startY;
-      let pxW = Math.max(120, startW + deltaX);
-      let pxH = Math.max(80, startH + deltaY);
+      let pxW = Math.max(120, moveEvent.clientX - anchorLeft);
+      let pxH = Math.max(80, moveEvent.clientY - anchorTop);
 
       if (overlay.contentType === "media") {
-        const dominant = Math.abs(deltaX) >= Math.abs(deltaY) ? pxW : pxH * ratio;
-        pxW = Math.max(120, dominant);
+        const projectedH = ((pxW * ratio) + pxH) / ((ratio * ratio) + 1);
+        pxH = Math.max(80, projectedH);
+        pxW = Math.max(120, pxH * ratio);
         pxH = pxW / ratio;
       }
 
@@ -686,14 +690,21 @@ function setupResizing(handle, frame, overlay) {
       const h = overlay.contentType === "media"
         ? null
         : (window.innerHeight ? (pxH / window.innerHeight) * 100 : overlay.floatHeight);
-      latest = setFloatingFrameSize(frame, overlay, w, h);
-      setFloatingFramePosition(frame, Number(frame.dataset.floatX) || 50, Number(frame.dataset.floatY) || 50);
+      const size = setFloatingFrameSize(frame, overlay, w, h);
+
+      const resizedRect = frame.getBoundingClientRect();
+      const centerX = anchorLeft + resizedRect.width / 2;
+      const centerY = anchorTop + resizedRect.height / 2;
+      const x = window.innerWidth ? (centerX / window.innerWidth) * 100 : 50;
+      const y = window.innerHeight ? (centerY / window.innerHeight) * 100 : 50;
+      const pos = setFloatingFramePosition(frame, x, y);
+      latest = { ...size, ...pos };
 
       if (overlay.placementMode === "gm" && game.user.isGM && !rafPending) {
         rafPending = true;
         requestAnimationFrame(() => {
           rafPending = false;
-          broadcastPacket({ action: "geometry", overlayId: overlay.id, w: latest.w, h: latest.h });
+          broadcastPacket({ action: "geometry", overlayId: overlay.id, ...latest });
         });
       }
     };
@@ -705,9 +716,10 @@ function setupResizing(handle, frame, overlay) {
       frame.classList.remove("is-resizing");
 
       if (overlay.placementMode === "gm" && game.user.isGM) {
-        broadcastPacket({ action: "geometry", overlayId: overlay.id, w: latest.w, h: latest.h });
-        await persistGMGeometry(overlay.id, { w: latest.w, h: latest.h });
+        broadcastPacket({ action: "geometry", overlayId: overlay.id, ...latest });
+        await persistGMGeometry(overlay.id, latest);
       } else if (overlay.placementMode === "player") {
+        setPlayerPosition(overlay.id, latest.x, latest.y);
         setPlayerSize(overlay.id, latest.w, latest.h);
       }
     };
@@ -988,7 +1000,8 @@ async function loadCustomFrames({ force = false } = {}) {
         id,
         name: customFrameNameFromFile(file),
         image: resolveFoundryPath(file),
-        mode: "overlay"
+        mode: "auto9",
+        slicePercent: 12
       });
     }
 
@@ -1081,6 +1094,7 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
         isMediaContent: overlay.contentType === "media",
         isTextContent: overlay.contentType === "text",
         isHtmlContent: overlay.contentType === "html",
+        isCustomFrame: overlay.frameStyle.startsWith("custom:"),
         statusLabel: overlay.active ? `Affichée (${activeCount})` : "Fermée",
         widthUnits: unitOptions(overlay.widthUnit, "width"),
         heightUnits: unitOptions(overlay.heightUnit, "height"),
@@ -1153,6 +1167,7 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
       backgroundOpacity: Number(get('[name="backgroundOpacity"]')?.value || 92),
       frameStyle,
       customFrame,
+      customFrameThickness: Number(get('[name="customFrameThickness"]')?.value || 18),
       allowPlayerClose: Boolean(get('[name="allowPlayerClose"]')?.checked),
       autoplay: Boolean(get('[name="autoplay"]')?.checked),
       loop: Boolean(get('[name="loop"]')?.checked),
@@ -1214,15 +1229,22 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
   #onInput(event) {
     const card = this.#cardFromTarget(event.target);
     if (!card) return;
-    if (event.target.matches('input[name="contentOpacity"], input[name="backgroundOpacity"]')) {
+    if (event.target.matches('input[name="contentOpacity"], input[name="backgroundOpacity"], input[name="customFrameThickness"]')) {
       const output = event.target.closest(".gmo-range-row")?.querySelector("output");
-      if (output) output.textContent = `${event.target.value} %`;
+      if (output) output.textContent = event.target.name === "customFrameThickness"
+        ? `${event.target.value} px`
+        : `${event.target.value} %`;
     }
   }
 
   #onChange(event) {
     const card = this.#cardFromTarget(event.target);
     if (!card) return;
+
+    if (event.target.matches('select[name="frameStyle"]')) {
+      card.classList.toggle("gmo-frame-custom-selected", event.target.value.startsWith("custom:"));
+      return;
+    }
 
     if (event.target.matches('select[name="targetMode"]')) {
       card.classList.toggle("gmo-target-selected", event.target.value === "selected");
