@@ -17,7 +17,7 @@ Module Foundry VTT V14 permettant au MJ d'afficher des images, vidéos, textes e
 - Bouton de fermeture local côté joueur, activable fenêtre par fenêtre par le MJ.
 - Cadres intégrés : Aucun, Sobre, Métal, Holographique, Terminal et Fantasy.
 - Cadres personnalisés chargés depuis le dossier Data de Foundry.
-- Épaisseur et marge interne des cadres personnalisés réglables indépendamment, sans modifier l'opacité du fond.
+- Épaisseur et écart avec le média réglables indépendamment pour les cadres personnalisés ; l'écart repousse le cadre vers l'extérieur sans réduire le média et sans modifier l'opacité du fond.
 - Aperçu MJ.
 - Bouton dédié dans la barre de contrôles de scène.
 
@@ -48,7 +48,7 @@ Data/
         └── nova-frame.svg
 ```
 
-Le nom affiché est dérivé automatiquement du nom du fichier. Le gestionnaire permet aussi de régler séparément l’épaisseur du cadre et son écart avec le média, tandis que l’opacité du fond de fenêtre reste entièrement indépendante. En mode simple, le module applique automatiquement un découpage 9-slice : les quatre coins restent intacts et seuls les bords s'étirent pour s'adapter au ratio du média. L'épaisseur peut être ajustée directement dans le gestionnaire.
+Le nom affiché est dérivé automatiquement du nom du fichier. Le gestionnaire permet de régler séparément l’épaisseur du cadre et l’écart entre le cadre et le média. Cet écart déplace le cadre vers l’extérieur : il ne réduit donc pas la taille du média. L’opacité du fond de fenêtre reste entièrement indépendante. En mode simple, le module applique automatiquement un découpage 9-slice : les quatre coins restent intacts et seuls les bords s'étirent pour s'adapter au ratio du média.
 
 ### Ajout avancé — optionnel
 
