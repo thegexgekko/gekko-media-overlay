@@ -47,7 +47,7 @@ Data/
         └── nova-frame.svg
 ```
 
-Le nom affiché est dérivé automatiquement du nom du fichier et le module applique des réglages de cadre par défaut.
+Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et superposée à la fenêtre, sans découpage 9-slice.
 
 ### Ajout avancé — optionnel
 

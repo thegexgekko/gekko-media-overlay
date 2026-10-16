@@ -475,12 +475,26 @@ function applyFrameStyle(frame, overlay) {
   const image = sanitizeUrl(def.image, { image: true });
   if (!image) return;
 
+  frame.classList.add("gmo-frame-custom");
+
+  // Mode simple (image déposée directement dans frames/) : on conserve le dessin
+  // complet et on le superpose à la fenêtre, sans découpage 9-slice arbitraire.
+  if (def.mode === "overlay") {
+    frame.classList.add("gmo-frame-custom-overlay");
+    frame.style.setProperty("--gmo-custom-frame-image", `url("${image.replaceAll('"', '%22')}")`);
+    frame.style.border = "0";
+    frame.style.padding = "0";
+    frame.style.borderRadius = "0";
+    return;
+  }
+
+  // Mode avancé (frame.json) : garde le système 9-slice configurable.
   const slice = safeFrameValue(def.slice, 32, 1, 256);
   const width = safeFrameValue(def.width, 14, 1, 96);
   const padding = safeFrameValue(def.padding, 10, 0, 96);
   const radius = safeFrameValue(def.radius, 0, 0, 64);
 
-  frame.classList.add("gmo-frame-custom");
+  frame.classList.add("gmo-frame-custom-border");
   frame.style.borderStyle = "solid";
   frame.style.borderWidth = `${width}px`;
   frame.style.borderImageSource = `url("${image.replaceAll('"', '%22')}")`;
@@ -917,7 +931,14 @@ function frameIdFromPath(path) {
 }
 
 function customFrameNameFromFile(path) {
-  const filename = String(path ?? "").split("/").pop() ?? "Cadre personnalisé";
+  const rawFilename = String(path ?? "").split("/").pop() ?? "Cadre personnalisé";
+  let filename = rawFilename;
+  try {
+    filename = decodeURIComponent(rawFilename);
+  } catch (_error) {
+    // Certains fournisseurs peuvent renvoyer des noms partiellement encodés.
+  }
+
   const stem = filename.replace(/\.[^.]+$/, "");
   return stem
     .replace(/[-_]+/g, " ")
@@ -952,11 +973,7 @@ async function loadCustomFrames({ force = false } = {}) {
         id,
         name: customFrameNameFromFile(file),
         image: resolveFoundryPath(file),
-        slice: 32,
-        width: 14,
-        padding: 10,
-        radius: 0,
-        repeat: "stretch"
+        mode: "overlay"
       });
     }
 
@@ -978,6 +995,7 @@ async function loadCustomFrames({ force = false } = {}) {
           id,
           name: String(raw.name ?? dir.split("/").pop() ?? "Cadre personnalisé"),
           image: resolveFoundryPath(imagePath),
+          mode: "border",
           slice: safeFrameValue(raw.slice, 32, 1, 256),
           width: safeFrameValue(raw.width, 14, 1, 96),
           padding: safeFrameValue(raw.padding, 10, 0, 96),
@@ -1002,12 +1020,13 @@ function frameOptions(current, customFrames) {
     ["holo", "Holographique"],
     ["terminal", "Terminal"],
     ["fantasy", "Fantasy"]
-  ].map(([value, label]) => ({ value, label, selected: current === value, custom: false }));
+  ].map(([value, label]) => ({ value, label, selected: current === value }));
 
   const custom = [...customFrames.values()]
     .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang))
-    .map(def => ({ value: def.id, label: `Perso — ${def.name}`, selected: current === def.id, custom: true }));
-  return [...builtins, ...custom];
+    .map(def => ({ value: def.id, label: def.name, selected: current === def.id }));
+
+  return { builtins, custom, hasCustom: custom.length > 0 };
 }
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;

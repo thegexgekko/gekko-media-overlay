@@ -49,9 +49,18 @@
           <div class="gmo-field">
             <label>Cadre</label>
             <select name="frameStyle">
-              {{#each frameStyles}}
-                <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
-              {{/each}}
+              <optgroup label="Cadres intégrés">
+                {{#each frameStyles.builtins}}
+                  <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+                {{/each}}
+              </optgroup>
+              {{#if frameStyles.hasCustom}}
+                <optgroup label="Cadres personnalisés">
+                  {{#each frameStyles.custom}}
+                    <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+                  {{/each}}
+                </optgroup>
+              {{/if}}
             </select>
           </div>
 
