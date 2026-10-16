@@ -3,14 +3,24 @@ const SOCKET_NAME = `module.${MODULE_ID}`;
 const SETTING_OVERLAYS = "overlays";
 const RUNTIME_LAYER_ID = "gekko-media-overlay-layer";
 const PLAYER_POS_PREFIX = `${MODULE_ID}:player-position`;
+const PLAYER_SIZE_PREFIX = `${MODULE_ID}:player-size`;
+const CUSTOM_FRAME_ROOT = "gekko-media-overlay/frames";
 
 const VIDEO_EXTENSIONS = new Set(["webm", "mp4", "m4v", "ogv", "ogg", "mov"]);
 const PLACEMENT_MODES = new Set(["fixed", "gm", "player"]);
+const CONTENT_TYPES = new Set(["media", "text", "html"]);
+const BUILTIN_FRAME_IDS = new Set(["none", "simple", "metal", "holo", "terminal", "fantasy"]);
 
 const DEFAULT_OVERLAY = Object.freeze({
   id: "",
   name: "Nouvelle fenêtre",
+  contentType: "media",
   media: "",
+  textContent: "",
+  htmlContent: "",
+  textAlign: "left",
+  textFontSize: 18,
+  textColor: "#ffffff",
   width: 60,
   widthUnit: "vw",
   height: 0,
@@ -19,8 +29,15 @@ const DEFAULT_OVERLAY = Object.freeze({
   placementMode: "fixed",
   floatX: 50,
   floatY: 50,
+  floatWidth: 60,
+  floatHeight: 35,
   preserveRatio: true,
   darkBackdrop: false,
+  contentOpacity: 100,
+  backgroundOpacity: 92,
+  frameStyle: "none",
+  customFrame: null,
+  allowPlayerClose: false,
   autoplay: true,
   loop: false,
   muted: true,
@@ -33,6 +50,7 @@ const DEFAULT_OVERLAY = Object.freeze({
 });
 
 let managerInstance = null;
+let customFramesCache = new Map();
 
 function clone(value) {
   return foundry.utils.deepClone(value);
@@ -49,6 +67,11 @@ function escapeHTML(value) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function safeNumber(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 function getStoredOverlays() {
@@ -79,11 +102,23 @@ function normalizeOverlay(data = {}) {
   const overlay = { ...clone(DEFAULT_OVERLAY), ...clone(data) };
   overlay.recipients = Array.isArray(overlay.recipients) ? overlay.recipients : [];
   overlay.activeRecipients = Array.isArray(overlay.activeRecipients) ? overlay.activeRecipients : [];
-  overlay.width = Number.isFinite(Number(overlay.width)) ? Number(overlay.width) : DEFAULT_OVERLAY.width;
-  overlay.height = Number.isFinite(Number(overlay.height)) ? Number(overlay.height) : DEFAULT_OVERLAY.height;
+  overlay.contentType = CONTENT_TYPES.has(overlay.contentType) ? overlay.contentType : "media";
+  overlay.width = safeNumber(overlay.width, DEFAULT_OVERLAY.width);
+  overlay.height = safeNumber(overlay.height, DEFAULT_OVERLAY.height);
   overlay.placementMode = PLACEMENT_MODES.has(overlay.placementMode) ? overlay.placementMode : "fixed";
-  overlay.floatX = clamp(Number.isFinite(Number(overlay.floatX)) ? Number(overlay.floatX) : 50, 0, 100);
-  overlay.floatY = clamp(Number.isFinite(Number(overlay.floatY)) ? Number(overlay.floatY) : 50, 0, 100);
+  overlay.floatX = clamp(safeNumber(overlay.floatX, 50), 0, 100);
+  overlay.floatY = clamp(safeNumber(overlay.floatY, 50), 0, 100);
+  overlay.floatWidth = clamp(safeNumber(overlay.floatWidth, overlay.widthUnit === "vw" ? overlay.width : 60), 8, 96);
+  overlay.floatHeight = clamp(safeNumber(overlay.floatHeight, 35), 8, 92);
+  overlay.contentOpacity = clamp(safeNumber(overlay.contentOpacity, 100), 10, 100);
+  overlay.backgroundOpacity = clamp(safeNumber(overlay.backgroundOpacity, 92), 0, 100);
+  overlay.textFontSize = clamp(safeNumber(overlay.textFontSize, 18), 8, 96);
+  overlay.textAlign = ["left", "center", "right", "justify"].includes(overlay.textAlign) ? overlay.textAlign : "left";
+  overlay.textColor = typeof overlay.textColor === "string" && overlay.textColor ? overlay.textColor : "#ffffff";
+  overlay.frameStyle = typeof overlay.frameStyle === "string" && overlay.frameStyle ? overlay.frameStyle : "none";
+  overlay.customFrame = overlay.customFrame && typeof overlay.customFrame === "object" ? clone(overlay.customFrame) : null;
+  overlay.allowPlayerClose = Boolean(overlay.allowPlayerClose);
+  overlay.preserveRatio = overlay.contentType === "media" ? true : Boolean(overlay.preserveRatio);
   return overlay;
 }
 
@@ -145,36 +180,112 @@ function detectMediaType(path) {
   return VIDEO_EXTENSIONS.has(ext) ? "video" : "image";
 }
 
-function buildMediaElement(overlay, { controllerOnly = false } = {}) {
-  const type = detectMediaType(overlay.media);
+function sanitizeUrl(value, { image = false } = {}) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (/^(javascript|vbscript):/i.test(raw)) return "";
+  if (/^data:/i.test(raw)) return image && /^data:image\/(png|jpeg|jpg|gif|webp);/i.test(raw) ? raw : "";
+  return raw;
+}
+
+function sanitizeSimpleHTML(html) {
+  const template = document.createElement("template");
+  template.innerHTML = String(html ?? "");
+  const allowedTags = new Set([
+    "P", "DIV", "SPAN", "H1", "H2", "H3", "H4", "STRONG", "B", "EM", "I", "U", "S",
+    "UL", "OL", "LI", "BR", "HR", "BLOCKQUOTE", "CODE", "PRE", "A", "IMG",
+    "TABLE", "THEAD", "TBODY", "TR", "TH", "TD"
+  ]);
+  const globalAttrs = new Set(["title"]);
+  const tagAttrs = {
+    A: new Set(["href", "target", "rel"]),
+    IMG: new Set(["src", "alt", "width", "height"]),
+    TH: new Set(["colspan", "rowspan"]),
+    TD: new Set(["colspan", "rowspan"])
+  };
+
+  const walk = node => {
+    for (const child of [...node.children]) {
+      if (!allowedTags.has(child.tagName)) {
+        child.replaceWith(...child.childNodes);
+        continue;
+      }
+
+      for (const attr of [...child.attributes]) {
+        const name = attr.name.toLowerCase();
+        const allowed = globalAttrs.has(name) || tagAttrs[child.tagName]?.has(name);
+        if (!allowed || name.startsWith("on") || name === "style" || name === "class" || name === "id") {
+          child.removeAttribute(attr.name);
+          continue;
+        }
+        if (child.tagName === "A" && name === "href") {
+          const safe = sanitizeUrl(attr.value);
+          if (safe) child.setAttribute("href", safe);
+          else child.removeAttribute("href");
+        }
+        if (child.tagName === "IMG" && name === "src") {
+          const safe = sanitizeUrl(attr.value, { image: true });
+          if (safe) child.setAttribute("src", safe);
+          else child.removeAttribute("src");
+        }
+      }
+
+      if (child.tagName === "A") {
+        child.setAttribute("target", "_blank");
+        child.setAttribute("rel", "noopener noreferrer");
+      }
+      walk(child);
+    }
+  };
+
+  walk(template.content);
+  return template.innerHTML;
+}
+
+function buildContentElement(overlay, { controllerOnly = false } = {}) {
   let element;
 
-  if (type === "video") {
-    element = document.createElement("video");
-    element.src = overlay.media;
-    element.autoplay = Boolean(overlay.autoplay);
-    element.loop = Boolean(overlay.loop);
-    element.muted = controllerOnly ? true : Boolean(overlay.muted);
-    element.controls = Boolean(overlay.controls);
-    element.playsInline = true;
-    element.preload = "auto";
-
-    if (overlay.autoplay) {
-      element.addEventListener("canplay", () => {
-        element.play().catch(() => {
-          element.controls = true;
-          element.classList.add("gmo-autoplay-blocked");
-        });
-      }, { once: true });
-    }
+  if (overlay.contentType === "text") {
+    element = document.createElement("div");
+    element.className = "gmo-rich-content gmo-text-content";
+    element.textContent = overlay.textContent || "";
+  } else if (overlay.contentType === "html") {
+    element = document.createElement("div");
+    element.className = "gmo-rich-content gmo-html-content";
+    element.innerHTML = sanitizeSimpleHTML(overlay.htmlContent || "");
   } else {
-    element = document.createElement("img");
-    element.src = overlay.media;
-    element.alt = overlay.name || "Média";
-    element.draggable = false;
+    const type = detectMediaType(overlay.media);
+    if (type === "video") {
+      element = document.createElement("video");
+      element.src = overlay.media;
+      element.autoplay = Boolean(overlay.autoplay);
+      element.loop = Boolean(overlay.loop);
+      element.muted = controllerOnly ? true : Boolean(overlay.muted);
+      element.controls = Boolean(overlay.controls);
+      element.playsInline = true;
+      element.preload = "auto";
+
+      if (overlay.autoplay) {
+        element.addEventListener("canplay", () => {
+          element.play().catch(() => {
+            element.controls = true;
+            element.classList.add("gmo-autoplay-blocked");
+          });
+        }, { once: true });
+      }
+    } else {
+      element = document.createElement("img");
+      element.src = overlay.media;
+      element.alt = overlay.name || "Média";
+      element.draggable = false;
+    }
+    element.classList.add("gmo-media");
   }
 
-  element.classList.add("gmo-media");
+  element.style.opacity = String(overlay.contentOpacity / 100);
+  element.style.textAlign = overlay.textAlign;
+  element.style.fontSize = `${overlay.textFontSize}px`;
+  element.style.color = overlay.textColor;
   return element;
 }
 
@@ -182,6 +293,12 @@ function playerPositionKey(overlayId) {
   const worldId = game.world?.id ?? "world";
   const userId = game.user?.id ?? "user";
   return `${PLAYER_POS_PREFIX}:${worldId}:${userId}:${overlayId}`;
+}
+
+function playerSizeKey(overlayId) {
+  const worldId = game.world?.id ?? "world";
+  const userId = game.user?.id ?? "user";
+  return `${PLAYER_SIZE_PREFIX}:${worldId}:${userId}:${overlayId}`;
 }
 
 function getPlayerPosition(overlayId) {
@@ -199,17 +316,40 @@ function getPlayerPosition(overlayId) {
 function setPlayerPosition(overlayId, x, y) {
   try {
     localStorage.setItem(playerPositionKey(overlayId), JSON.stringify({ x, y }));
-  } catch (_error) {
-    // Le stockage local peut être bloqué par le navigateur. Le déplacement reste utilisable pour la session.
-  }
+  } catch (_error) {}
 }
 
 function clearPlayerPosition(overlayId) {
   try {
     localStorage.removeItem(playerPositionKey(overlayId));
+  } catch (_error) {}
+}
+
+function getPlayerSize(overlayId) {
+  try {
+    const raw = localStorage.getItem(playerSizeKey(overlayId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Number.isFinite(Number(parsed?.w))) return null;
+    return {
+      w: clamp(Number(parsed.w), 8, 96),
+      h: Number.isFinite(Number(parsed?.h)) ? clamp(Number(parsed.h), 8, 92) : null
+    };
   } catch (_error) {
-    // Sans conséquence fonctionnelle.
+    return null;
   }
+}
+
+function setPlayerSize(overlayId, w, h = null) {
+  try {
+    localStorage.setItem(playerSizeKey(overlayId), JSON.stringify({ w, h }));
+  } catch (_error) {}
+}
+
+function clearPlayerSize(overlayId) {
+  try {
+    localStorage.removeItem(playerSizeKey(overlayId));
+  } catch (_error) {}
 }
 
 function floatingPositionFor(overlay) {
@@ -217,6 +357,14 @@ function floatingPositionFor(overlay) {
     return getPlayerPosition(overlay.id) ?? { x: overlay.floatX, y: overlay.floatY };
   }
   return { x: overlay.floatX, y: overlay.floatY };
+}
+
+function floatingSizeFor(overlay) {
+  if (overlay.placementMode === "player") {
+    const local = getPlayerSize(overlay.id);
+    if (local) return local;
+  }
+  return { w: overlay.floatWidth, h: overlay.floatHeight };
 }
 
 function setFloatingFramePosition(frame, x, y, { clampToViewport = true } = {}) {
@@ -245,6 +393,27 @@ function setFloatingFramePosition(frame, x, y, { clampToViewport = true } = {}) 
   return { x: nextX, y: nextY };
 }
 
+function setFloatingFrameSize(frame, overlay, w, h = null) {
+  const nextW = clamp(Number(w) || overlay.floatWidth || 60, 8, 96);
+  const mediaRatio = overlay.contentType === "media";
+  frame.style.width = `${nextW}vw`;
+
+  if (mediaRatio) {
+    frame.style.height = "auto";
+    frame.dataset.floatHeight = "";
+  } else {
+    const nextH = clamp(Number(h) || overlay.floatHeight || 35, 8, 92);
+    frame.style.height = `${nextH}vh`;
+    frame.dataset.floatHeight = String(nextH);
+  }
+
+  frame.dataset.floatWidth = String(nextW);
+  return {
+    w: nextW,
+    h: mediaRatio ? null : Number(frame.dataset.floatHeight)
+  };
+}
+
 function updateRuntimePosition(overlayId, x, y) {
   const root = document.getElementById(runtimeId(overlayId));
   const frame = root?.querySelector(".gmo-runtime-frame");
@@ -252,13 +421,25 @@ function updateRuntimePosition(overlayId, x, y) {
   return setFloatingFramePosition(frame, x, y);
 }
 
-async function persistGMPosition(overlayId, x, y) {
+function updateRuntimeSize(overlayId, w, h = null) {
+  const root = document.getElementById(runtimeId(overlayId));
+  const frame = root?.querySelector(".gmo-runtime-frame");
+  const overlay = root?._gmoOverlay;
+  if (!frame || !overlay) return null;
+  const result = setFloatingFrameSize(frame, overlay, w, h);
+  requestAnimationFrame(() => setFloatingFramePosition(frame, Number(frame.dataset.floatX) || 50, Number(frame.dataset.floatY) || 50));
+  return result;
+}
+
+async function persistGMGeometry(overlayId, { x = null, y = null, w = null, h = null } = {}) {
   if (!game.user?.isGM) return;
   const overlays = getStoredOverlays();
   if (!overlays[overlayId]) return;
   const overlay = normalizeOverlay(overlays[overlayId]);
-  overlay.floatX = x;
-  overlay.floatY = y;
+  if (x !== null) overlay.floatX = x;
+  if (y !== null) overlay.floatY = y;
+  if (w !== null) overlay.floatWidth = w;
+  if (h !== null) overlay.floatHeight = h;
   overlays[overlayId] = overlay;
   await setStoredOverlays(overlays);
   if (managerInstance?.rendered) await managerInstance.render({ force: true });
@@ -271,39 +452,114 @@ function canDragOverlay(overlay, { preview = false } = {}) {
   return false;
 }
 
-function addFloatingChrome(frame, overlay, { preview = false, controllerOnly = false } = {}) {
-  if (!canDragOverlay(overlay, { preview })) return;
+function canResizeOverlay(overlay, { preview = false } = {}) {
+  return canDragOverlay(overlay, { preview });
+}
+
+function canPlayerClose(overlay, { preview = false, controllerOnly = false } = {}) {
+  return !preview && !controllerOnly && !game.user?.isGM && overlay.allowPlayerClose;
+}
+
+function safeFrameValue(value, fallback, min, max) {
+  return clamp(safeNumber(value, fallback), min, max);
+}
+
+function applyFrameStyle(frame, overlay) {
+  for (const id of BUILTIN_FRAME_IDS) frame.classList.remove(`gmo-frame-${id}`);
+  frame.classList.add(`gmo-frame-${BUILTIN_FRAME_IDS.has(overlay.frameStyle) ? overlay.frameStyle : "none"}`);
+
+  if (!overlay.frameStyle.startsWith("custom:")) return;
+  const def = overlay.customFrame;
+  if (!def || typeof def !== "object") return;
+
+  const image = sanitizeUrl(def.image, { image: true });
+  if (!image) return;
+
+  const slice = safeFrameValue(def.slice, 32, 1, 256);
+  const width = safeFrameValue(def.width, 14, 1, 96);
+  const padding = safeFrameValue(def.padding, 10, 0, 96);
+  const radius = safeFrameValue(def.radius, 0, 0, 64);
+
+  frame.classList.add("gmo-frame-custom");
+  frame.style.borderStyle = "solid";
+  frame.style.borderWidth = `${width}px`;
+  frame.style.borderImageSource = `url("${image.replaceAll('"', '%22')}")`;
+  frame.style.borderImageSlice = String(slice);
+  frame.style.borderImageWidth = String(width);
+  frame.style.borderImageRepeat = ["stretch", "repeat", "round", "space"].includes(def.repeat) ? def.repeat : "stretch";
+  frame.style.padding = `${padding}px`;
+  frame.style.borderRadius = `${radius}px`;
+}
+
+function addRuntimeChrome(frame, overlay, { preview = false, controllerOnly = false } = {}) {
+  const canDrag = canDragOverlay(overlay, { preview });
+  const canResize = canResizeOverlay(overlay, { preview });
+  const canClose = canPlayerClose(overlay, { preview, controllerOnly });
+  if (!canDrag && !canResize && !canClose && !controllerOnly) return;
 
   const chrome = document.createElement("div");
   chrome.className = "gmo-floating-chrome";
 
-  const handle = document.createElement("button");
-  handle.type = "button";
-  handle.className = "gmo-drag-handle";
-  handle.title = overlay.placementMode === "gm"
-    ? "Déplacer cette fenêtre chez les joueurs"
-    : "Déplacer cette fenêtre";
-  handle.innerHTML = '<i class="fa-solid fa-up-down-left-right"></i><span>Déplacer</span>';
-  chrome.appendChild(handle);
+  if (canDrag) {
+    const handle = document.createElement("button");
+    handle.type = "button";
+    handle.className = "gmo-drag-handle";
+    handle.title = overlay.placementMode === "gm"
+      ? "Déplacer cette fenêtre chez les joueurs"
+      : "Déplacer cette fenêtre";
+    handle.innerHTML = '<i class="fa-solid fa-up-down-left-right"></i><span>Déplacer</span>';
+    chrome.appendChild(handle);
+    setupDragging(handle, frame, overlay);
+  }
 
-  const reset = document.createElement("button");
-  reset.type = "button";
-  reset.className = "gmo-runtime-reset";
-  reset.title = "Recentrer";
-  reset.innerHTML = '<i class="fa-solid fa-crosshairs"></i>';
-  reset.addEventListener("click", async event => {
-    event.preventDefault();
-    event.stopPropagation();
-    const [x, y] = anchorPosition(overlay.position);
-    const actual = setFloatingFramePosition(frame, x, y);
-    if (overlay.placementMode === "gm" && game.user.isGM) {
-      broadcastPacket({ action: "position", overlayId: overlay.id, x: actual.x, y: actual.y });
-      await persistGMPosition(overlay.id, actual.x, actual.y);
-    } else if (overlay.placementMode === "player") {
-      setPlayerPosition(overlay.id, actual.x, actual.y);
-    }
-  });
-  chrome.appendChild(reset);
+  if (canResize) {
+    const resize = document.createElement("button");
+    resize.type = "button";
+    resize.className = "gmo-resize-handle";
+    resize.title = overlay.contentType === "media"
+      ? "Redimensionner (ratio de l’image/vidéo conservé)"
+      : "Redimensionner";
+    resize.innerHTML = '<i class="fa-solid fa-up-right-and-down-left-from-center"></i><span>Taille</span>';
+    chrome.appendChild(resize);
+    setupResizing(resize, frame, overlay);
+  }
+
+  if (canDrag) {
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "gmo-runtime-reset";
+    reset.title = "Recentrer et réinitialiser la taille";
+    reset.innerHTML = '<i class="fa-solid fa-crosshairs"></i>';
+    reset.addEventListener("click", async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const [x, y] = anchorPosition(overlay.position);
+      const actualPos = setFloatingFramePosition(frame, x, y);
+      const actualSize = setFloatingFrameSize(frame, overlay, overlay.floatWidth, overlay.floatHeight);
+      if (overlay.placementMode === "gm" && game.user.isGM) {
+        broadcastPacket({ action: "geometry", overlayId: overlay.id, ...actualPos, ...actualSize });
+        await persistGMGeometry(overlay.id, { ...actualPos, ...actualSize });
+      } else if (overlay.placementMode === "player") {
+        setPlayerPosition(overlay.id, actualPos.x, actualPos.y);
+        setPlayerSize(overlay.id, actualSize.w, actualSize.h);
+      }
+    });
+    chrome.appendChild(reset);
+  }
+
+  if (canClose) {
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "gmo-player-close";
+    close.title = "Fermer cette fenêtre sur mon écran";
+    close.innerHTML = '<i class="fa-solid fa-xmark"></i><span>Fermer</span>';
+    close.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      frame.closest(".gmo-runtime")?.remove();
+    });
+    chrome.appendChild(close);
+  }
 
   if (controllerOnly) {
     const badge = document.createElement("span");
@@ -313,7 +569,6 @@ function addFloatingChrome(frame, overlay, { preview = false, controllerOnly = f
   }
 
   frame.appendChild(chrome);
-  setupDragging(handle, frame, overlay);
 }
 
 function setupDragging(handle, frame, overlay) {
@@ -345,7 +600,7 @@ function setupDragging(handle, frame, overlay) {
         rafPending = true;
         requestAnimationFrame(() => {
           rafPending = false;
-          broadcastPacket({ action: "position", overlayId: overlay.id, x: latest.x, y: latest.y });
+          broadcastPacket({ action: "geometry", overlayId: overlay.id, x: latest.x, y: latest.y });
         });
       }
     };
@@ -357,8 +612,8 @@ function setupDragging(handle, frame, overlay) {
       frame.classList.remove("is-dragging");
 
       if (overlay.placementMode === "gm" && game.user.isGM) {
-        broadcastPacket({ action: "position", overlayId: overlay.id, x: latest.x, y: latest.y });
-        await persistGMPosition(overlay.id, latest.x, latest.y);
+        broadcastPacket({ action: "geometry", overlayId: overlay.id, x: latest.x, y: latest.y });
+        await persistGMGeometry(overlay.id, { x: latest.x, y: latest.y });
       } else if (overlay.placementMode === "player") {
         setPlayerPosition(overlay.id, latest.x, latest.y);
       }
@@ -370,9 +625,83 @@ function setupDragging(handle, frame, overlay) {
   });
 }
 
+function setupResizing(handle, frame, overlay) {
+  handle.addEventListener("pointerdown", event => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const rect = frame.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startW = rect.width;
+    const startH = rect.height;
+    const ratio = startH > 0 ? startW / startH : 16 / 9;
+    frame.classList.add("is-resizing");
+    handle.setPointerCapture?.(event.pointerId);
+
+    let latest = {
+      w: Number(frame.dataset.floatWidth) || overlay.floatWidth,
+      h: frame.dataset.floatHeight ? Number(frame.dataset.floatHeight) : null
+    };
+    let rafPending = false;
+
+    const onMove = moveEvent => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      let pxW = Math.max(120, startW + deltaX);
+      let pxH = Math.max(80, startH + deltaY);
+
+      if (overlay.contentType === "media") {
+        const dominant = Math.abs(deltaX) >= Math.abs(deltaY) ? pxW : pxH * ratio;
+        pxW = Math.max(120, dominant);
+        pxH = pxW / ratio;
+      }
+
+      const w = window.innerWidth ? (pxW / window.innerWidth) * 100 : overlay.floatWidth;
+      const h = overlay.contentType === "media"
+        ? null
+        : (window.innerHeight ? (pxH / window.innerHeight) * 100 : overlay.floatHeight);
+      latest = setFloatingFrameSize(frame, overlay, w, h);
+      setFloatingFramePosition(frame, Number(frame.dataset.floatX) || 50, Number(frame.dataset.floatY) || 50);
+
+      if (overlay.placementMode === "gm" && game.user.isGM && !rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          broadcastPacket({ action: "geometry", overlayId: overlay.id, w: latest.w, h: latest.h });
+        });
+      }
+    };
+
+    const onUp = async () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      frame.classList.remove("is-resizing");
+
+      if (overlay.placementMode === "gm" && game.user.isGM) {
+        broadcastPacket({ action: "geometry", overlayId: overlay.id, w: latest.w, h: latest.h });
+        await persistGMGeometry(overlay.id, { w: latest.w, h: latest.h });
+      } else if (overlay.placementMode === "player") {
+        setPlayerSize(overlay.id, latest.w, latest.h);
+      }
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp, { once: true });
+    window.addEventListener("pointercancel", onUp, { once: true });
+  });
+}
+
 function renderRuntimeOverlay(rawOverlay, { preview = false, controllerOnly = false } = {}) {
   const overlay = normalizeOverlay(rawOverlay);
-  if (!overlay.id || !overlay.media) return;
+  const hasContent = overlay.contentType === "media"
+    ? Boolean(overlay.media)
+    : overlay.contentType === "text"
+      ? Boolean(overlay.textContent?.trim())
+      : Boolean(overlay.htmlContent?.trim());
+  if (!overlay.id || !hasContent) return;
 
   removeRuntimeOverlay(overlay.id);
 
@@ -384,6 +713,7 @@ function renderRuntimeOverlay(rawOverlay, { preview = false, controllerOnly = fa
   root.dataset.preview = preview ? "true" : "false";
   root.dataset.placementMode = overlay.placementMode;
   root.dataset.controllerOnly = controllerOnly ? "true" : "false";
+  root._gmoOverlay = overlay;
 
   if (overlay.darkBackdrop) {
     const backdrop = document.createElement("div");
@@ -393,37 +723,43 @@ function renderRuntimeOverlay(rawOverlay, { preview = false, controllerOnly = fa
 
   const frame = document.createElement("div");
   frame.className = "gmo-runtime-frame";
-  frame.style.width = cssDimension(overlay.width, overlay.widthUnit, "width");
-  frame.style.height = cssDimension(overlay.height, overlay.heightUnit, "height");
+  frame.style.setProperty("--gmo-background-opacity", String(overlay.backgroundOpacity / 100));
+  applyFrameStyle(frame, overlay);
 
   if (overlay.placementMode === "fixed") {
     frame.classList.add(`gmo-pos-${positionClass(overlay.position)}`);
+    frame.style.width = cssDimension(overlay.width, overlay.widthUnit, "width");
+    frame.style.height = cssDimension(overlay.height, overlay.heightUnit, "height");
   } else {
     frame.classList.add("gmo-floating-frame");
     const pos = floatingPositionFor(overlay);
+    const size = floatingSizeFor(overlay);
     setFloatingFramePosition(frame, pos.x, pos.y, { clampToViewport: false });
+    setFloatingFrameSize(frame, overlay, size.w, size.h);
     requestAnimationFrame(() => {
-      if (frame.isConnected) {
-        const actual = setFloatingFramePosition(frame, Number(frame.dataset.floatX), Number(frame.dataset.floatY));
-        if (overlay.placementMode === "player" && getPlayerPosition(overlay.id)) {
-          setPlayerPosition(overlay.id, actual.x, actual.y);
-        }
+      if (!frame.isConnected) return;
+      const actual = setFloatingFramePosition(frame, Number(frame.dataset.floatX), Number(frame.dataset.floatY));
+      if (overlay.placementMode === "player" && getPlayerPosition(overlay.id)) {
+        setPlayerPosition(overlay.id, actual.x, actual.y);
       }
     });
   }
 
   if (overlay.preserveRatio) frame.classList.add("gmo-preserve-ratio");
 
-  const media = buildMediaElement(overlay, { controllerOnly });
-  frame.appendChild(media);
-  if (overlay.placementMode !== "fixed") {
-    const reclamp = () => {
+  const content = buildContentElement(overlay, { controllerOnly });
+  frame.appendChild(content);
+
+  if (overlay.placementMode !== "fixed" && overlay.contentType === "media") {
+    const eventName = detectMediaType(overlay.media) === "video" ? "loadedmetadata" : "load";
+    content.addEventListener(eventName, () => {
       if (!frame.isConnected) return;
+      setFloatingFrameSize(frame, overlay, Number(frame.dataset.floatWidth) || overlay.floatWidth, null);
       setFloatingFramePosition(frame, Number(frame.dataset.floatX) || 50, Number(frame.dataset.floatY) || 50);
-    };
-    media.addEventListener(detectMediaType(overlay.media) === "video" ? "loadedmetadata" : "load", reclamp, { once: true });
+    }, { once: true });
   }
-  addFloatingChrome(frame, overlay, { preview, controllerOnly });
+
+  addRuntimeChrome(frame, overlay, { preview, controllerOnly });
 
   if (preview) {
     const label = document.createElement("div");
@@ -432,7 +768,7 @@ function renderRuntimeOverlay(rawOverlay, { preview = false, controllerOnly = fa
     frame.appendChild(label);
     frame.style.pointerEvents = "auto";
     frame.addEventListener("click", event => {
-      if (event.target.closest("video, button")) return;
+      if (event.target.closest("video, button, a")) return;
       root.remove();
     });
   }
@@ -443,18 +779,14 @@ function renderRuntimeOverlay(rawOverlay, { preview = false, controllerOnly = fa
 
 function resolveTargets(overlay) {
   const targets = new Set();
-
   if (overlay.targetMode === "allPlayers") {
-    for (const user of game.users) {
-      if (!user.isGM) targets.add(user.id);
-    }
+    for (const user of game.users) if (!user.isGM) targets.add(user.id);
   } else {
     for (const id of overlay.recipients ?? []) {
       const user = game.users.get(id);
       if (user && !user.isGM) targets.add(id);
     }
   }
-
   if (overlay.includeGM && game.user?.id) targets.add(game.user.id);
   return [...targets];
 }
@@ -473,21 +805,38 @@ function applySocketPacket(packet) {
       const overlay = normalizeOverlay(packet.overlay);
       const isTarget = targets.includes(game.user.id);
       const isGMController = overlay.placementMode === "gm" && game.user.isGM;
-      if (isTarget || isGMController) {
-        renderRuntimeOverlay(overlay, { controllerOnly: isGMController && !isTarget });
-      } else {
-        removeRuntimeOverlay(overlay.id);
+      if (isTarget || isGMController) renderRuntimeOverlay(overlay, { controllerOnly: isGMController && !isTarget });
+      else removeRuntimeOverlay(overlay.id);
+      break;
+    }
+    case "geometry": {
+      if (packet.x !== undefined || packet.y !== undefined) {
+        const root = document.getElementById(runtimeId(packet.overlayId));
+        const frame = root?.querySelector(".gmo-runtime-frame");
+        if (frame) updateRuntimePosition(
+          packet.overlayId,
+          packet.x ?? Number(frame.dataset.floatX) ?? 50,
+          packet.y ?? Number(frame.dataset.floatY) ?? 50
+        );
+      }
+      if (packet.w !== undefined || packet.h !== undefined) {
+        const root = document.getElementById(runtimeId(packet.overlayId));
+        const frame = root?.querySelector(".gmo-runtime-frame");
+        if (frame) updateRuntimeSize(
+          packet.overlayId,
+          packet.w ?? Number(frame.dataset.floatWidth) ?? 60,
+          packet.h ?? (frame.dataset.floatHeight ? Number(frame.dataset.floatHeight) : null)
+        );
       }
       break;
     }
-    case "position":
-      updateRuntimePosition(packet.overlayId, packet.x, packet.y);
-      break;
-    case "resetPlayerPosition": {
+    case "resetPlayerGeometry": {
       const targets = Array.isArray(packet.targets) ? packet.targets : [];
       if (!targets.includes(game.user.id)) break;
       clearPlayerPosition(packet.overlayId);
+      clearPlayerSize(packet.overlayId);
       updateRuntimePosition(packet.overlayId, packet.x, packet.y);
+      updateRuntimeSize(packet.overlayId, packet.w, packet.h);
       break;
     }
     case "close":
@@ -512,9 +861,7 @@ function syncLocalFromStoredState() {
     if (!overlay.active) continue;
     const isTarget = overlay.activeRecipients.includes(game.user.id);
     const isGMController = overlay.placementMode === "gm" && game.user.isGM;
-    if (isTarget || isGMController) {
-      renderRuntimeOverlay(overlay, { controllerOnly: isGMController && !isTarget });
-    }
+    if (isTarget || isGMController) renderRuntimeOverlay(overlay, { controllerOnly: isGMController && !isTarget });
   }
 }
 
@@ -527,15 +874,9 @@ function unitOptions(current, axis) {
 
 function positionOptions(current) {
   const options = [
-    ["top-left", "Haut gauche"],
-    ["top", "Haut"],
-    ["top-right", "Haut droite"],
-    ["left", "Gauche"],
-    ["center", "Centre"],
-    ["right", "Droite"],
-    ["bottom-left", "Bas gauche"],
-    ["bottom", "Bas"],
-    ["bottom-right", "Bas droite"]
+    ["top-left", "Haut gauche"], ["top", "Haut"], ["top-right", "Haut droite"],
+    ["left", "Gauche"], ["center", "Centre"], ["right", "Droite"],
+    ["bottom-left", "Bas gauche"], ["bottom", "Bas"], ["bottom-right", "Bas droite"]
   ];
   return options.map(([value, label]) => ({ value, label, selected: current === value }));
 }
@@ -548,31 +889,110 @@ function placementModeOptions(current) {
   ].map(([value, label]) => ({ value, label, selected: current === value }));
 }
 
+function contentTypeOptions(current) {
+  return [
+    ["media", "Image / Vidéo"],
+    ["text", "Texte"],
+    ["html", "HTML simple"]
+  ].map(([value, label]) => ({ value, label, selected: current === value }));
+}
+
+function textAlignOptions(current) {
+  return [
+    ["left", "Gauche"], ["center", "Centre"], ["right", "Droite"], ["justify", "Justifié"]
+  ].map(([value, label]) => ({ value, label, selected: current === value }));
+}
+
+function resolveFoundryPath(path) {
+  if (!path) return "";
+  try {
+    return foundry.utils.getRoute ? foundry.utils.getRoute(path) : path;
+  } catch (_error) {
+    return path;
+  }
+}
+
+function frameIdFromPath(path) {
+  return `custom:${String(path).replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}`;
+}
+
+async function loadCustomFrames({ force = false } = {}) {
+  if (customFramesCache.size && !force) return customFramesCache;
+  const next = new Map();
+  const FilePickerClass = foundry.applications?.apps?.FilePicker ?? globalThis.FilePicker;
+  if (!FilePickerClass?.browse) {
+    customFramesCache = next;
+    return next;
+  }
+
+  try {
+    const root = await FilePickerClass.browse("data", CUSTOM_FRAME_ROOT);
+    for (const dir of root?.dirs ?? []) {
+      try {
+        const listing = await FilePickerClass.browse("data", dir);
+        const jsonPath = (listing?.files ?? []).find(file => /\/frame\.json$/i.test(file));
+        if (!jsonPath) continue;
+        const response = await fetch(resolveFoundryPath(jsonPath), { cache: "no-store" });
+        if (!response.ok) continue;
+        const raw = await response.json();
+        const id = frameIdFromPath(dir);
+        const imageRaw = String(raw.image ?? "frame.png");
+        const baseDir = dir.replace(/\/$/, "");
+        const imagePath = /^(https?:|data:|\/)/i.test(imageRaw) ? imageRaw : `${baseDir}/${imageRaw}`;
+        next.set(id, {
+          id,
+          name: String(raw.name ?? dir.split("/").pop() ?? "Cadre personnalisé"),
+          image: resolveFoundryPath(imagePath),
+          slice: safeFrameValue(raw.slice, 32, 1, 256),
+          width: safeFrameValue(raw.width, 14, 1, 96),
+          padding: safeFrameValue(raw.padding, 10, 0, 96),
+          radius: safeFrameValue(raw.radius, 0, 0, 64),
+          repeat: ["stretch", "repeat", "round", "space"].includes(raw.repeat) ? raw.repeat : "stretch"
+        });
+      } catch (_error) {}
+    }
+  } catch (_error) {
+    // Le dossier personnalisé est optionnel : son absence n'est pas une erreur.
+  }
+
+  customFramesCache = next;
+  return next;
+}
+
+function frameOptions(current, customFrames) {
+  const builtins = [
+    ["none", "Aucun"],
+    ["simple", "Sobre"],
+    ["metal", "Métal"],
+    ["holo", "Holographique"],
+    ["terminal", "Terminal"],
+    ["fantasy", "Fantasy"]
+  ].map(([value, label]) => ({ value, label, selected: current === value, custom: false }));
+
+  const custom = [...customFrames.values()]
+    .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang))
+    .map(def => ({ value: def.id, label: `Perso — ${def.name}`, selected: current === def.id, custom: true }));
+  return [...builtins, ...custom];
+}
+
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 
 class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "gekko-media-overlay-manager",
     classes: ["gekko-media-overlay-manager"],
-    position: {
-      width: 790,
-      height: 820
-    },
-    window: {
-      icon: "gmo-gekko-icon",
-      title: "GEKKO — Media Overlay"
-    }
+    position: { width: 820, height: 860 },
+    window: { icon: "gmo-gekko-icon", title: "GEKKO — Media Overlay" }
   };
 
   static PARTS = {
-    body: {
-      template: `modules/${MODULE_ID}/templates/manager.hbs`
-    }
+    body: { template: `modules/${MODULE_ID}/templates/manager.hbs` }
   };
 
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const stored = getStoredOverlays();
+    const customFrames = await loadCustomFrames();
     const users = [...game.users]
       .filter(user => !user.isGM)
       .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang));
@@ -581,7 +1001,6 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
       const overlay = normalizeOverlay(raw);
       const recipients = new Set(overlay.recipients);
       const activeCount = overlay.activeRecipients.length;
-
       return {
         ...overlay,
         isSelectedMode: overlay.targetMode === "selected",
@@ -590,11 +1009,17 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
         isGMFloatingMode: overlay.placementMode === "gm",
         isPlayerFloatingMode: overlay.placementMode === "player",
         isFloatingMode: overlay.placementMode !== "fixed",
+        isMediaContent: overlay.contentType === "media",
+        isTextContent: overlay.contentType === "text",
+        isHtmlContent: overlay.contentType === "html",
         statusLabel: overlay.active ? `Affichée (${activeCount})` : "Fermée",
         widthUnits: unitOptions(overlay.widthUnit, "width"),
         heightUnits: unitOptions(overlay.heightUnit, "height"),
         positions: positionOptions(overlay.position),
         placementModes: placementModeOptions(overlay.placementMode),
+        contentTypes: contentTypeOptions(overlay.contentType),
+        textAligns: textAlignOptions(overlay.textAlign),
+        frameStyles: frameOptions(overlay.frameStyle, customFrames),
         users: users.map(user => ({
           id: user.id,
           name: user.name,
@@ -605,25 +1030,21 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     });
 
     overlays.sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang));
-
-    return {
-      ...context,
-      overlays,
-      hasOverlays: overlays.length > 0
-    };
+    return { ...context, overlays, hasOverlays: overlays.length > 0, customFrameRoot: CUSTOM_FRAME_ROOT };
   }
 
   _onRender(context, options) {
     super._onRender(context, options);
     managerInstance = this;
-
     this._boundOnClick ??= this.#onClick.bind(this);
     this._boundOnChange ??= this.#onChange.bind(this);
-
+    this._boundOnInput ??= this.#onInput.bind(this);
     this.element.removeEventListener("click", this._boundOnClick);
     this.element.removeEventListener("change", this._boundOnChange);
+    this.element.removeEventListener("input", this._boundOnInput);
     this.element.addEventListener("click", this._boundOnClick);
     this.element.addEventListener("change", this._boundOnChange);
+    this.element.addEventListener("input", this._boundOnInput);
   }
 
   #cardFromTarget(target) {
@@ -634,11 +1055,19 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     const id = card.dataset.overlayId;
     const get = selector => card.querySelector(selector);
     const checkedRecipients = [...card.querySelectorAll('input[name="recipient"]:checked')].map(input => input.value);
+    const frameStyle = get('[name="frameStyle"]')?.value || "none";
+    const customFrame = frameStyle.startsWith("custom:") ? clone(customFramesCache.get(frameStyle) ?? null) : null;
 
     return normalizeOverlay({
       id,
       name: get('[name="name"]')?.value.trim() || "Fenêtre média",
+      contentType: get('[name="contentType"]')?.value || "media",
       media: get('[name="media"]')?.value.trim() || "",
+      textContent: get('[name="textContent"]')?.value || "",
+      htmlContent: get('[name="htmlContent"]')?.value || "",
+      textAlign: get('[name="textAlign"]')?.value || "left",
+      textFontSize: Number(get('[name="textFontSize"]')?.value || 18),
+      textColor: get('[name="textColor"]')?.value || "#ffffff",
       width: Number(get('[name="width"]')?.value || 60),
       widthUnit: get('[name="widthUnit"]')?.value || "vw",
       height: Number(get('[name="height"]')?.value || 0),
@@ -647,8 +1076,15 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
       placementMode: get('[name="placementMode"]')?.value || "fixed",
       floatX: Number(get('[name="floatX"]')?.value || 50),
       floatY: Number(get('[name="floatY"]')?.value || 50),
+      floatWidth: Number(get('[name="floatWidth"]')?.value || 60),
+      floatHeight: Number(get('[name="floatHeight"]')?.value || 35),
       preserveRatio: Boolean(get('[name="preserveRatio"]')?.checked),
       darkBackdrop: Boolean(get('[name="darkBackdrop"]')?.checked),
+      contentOpacity: Number(get('[name="contentOpacity"]')?.value || 100),
+      backgroundOpacity: Number(get('[name="backgroundOpacity"]')?.value || 92),
+      frameStyle,
+      customFrame,
+      allowPlayerClose: Boolean(get('[name="allowPlayerClose"]')?.checked),
       autoplay: Boolean(get('[name="autoplay"]')?.checked),
       loop: Boolean(get('[name="loop"]')?.checked),
       muted: Boolean(get('[name="muted"]')?.checked),
@@ -663,12 +1099,10 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     const current = getStoredOverlays();
     const previous = normalizeOverlay(current[card.dataset.overlayId] ?? {});
     const next = this.#readCard(card);
-
     next.active = previous.active;
     next.activeRecipients = previous.activeRecipients;
     current[next.id] = next;
     await setStoredOverlays(current);
-
     if (render) await this.render({ force: true });
     return next;
   }
@@ -676,41 +1110,38 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
   async #onClick(event) {
     const button = event.target.closest("[data-action]");
     if (!button || !this.element.contains(button)) return;
-
     const action = button.dataset.action;
     const card = this.#cardFromTarget(button);
 
     switch (action) {
-      case "new":
-        await this.#createOverlay();
-        break;
-      case "browse":
-        if (card) this.#browseMedia(card);
-        break;
+      case "new": await this.#createOverlay(); break;
+      case "browse": if (card) this.#browseMedia(card); break;
       case "save":
         if (card) {
           await this.#saveCard(card);
           ui.notifications.info("Fenêtre enregistrée.");
         }
         break;
-      case "preview":
-        if (card) this.#togglePreview(card);
+      case "preview": if (card) this.#togglePreview(card); break;
+      case "show": if (card) await this.#showOverlay(card); break;
+      case "resetPosition": if (card) await this.#resetGeometry(card); break;
+      case "reloadFrames":
+        await loadCustomFrames({ force: true });
+        await this.render({ force: true });
+        ui.notifications.info(`Cadres personnalisés rechargés depuis Data/${CUSTOM_FRAME_ROOT}.`);
         break;
-      case "show":
-        if (card) await this.#showOverlay(card);
-        break;
-      case "resetPosition":
-        if (card) await this.#resetPosition(card);
-        break;
-      case "close":
-        if (card) await this.#closeOverlay(card.dataset.overlayId);
-        break;
-      case "delete":
-        if (card) await this.#deleteOverlay(card.dataset.overlayId);
-        break;
-      case "closeAll":
-        await this.#closeAll();
-        break;
+      case "close": if (card) await this.#closeOverlay(card.dataset.overlayId); break;
+      case "delete": if (card) await this.#deleteOverlay(card.dataset.overlayId); break;
+      case "closeAll": await this.#closeAll(); break;
+    }
+  }
+
+  #onInput(event) {
+    const card = this.#cardFromTarget(event.target);
+    if (!card) return;
+    if (event.target.matches('input[name="contentOpacity"], input[name="backgroundOpacity"]')) {
+      const output = event.target.closest(".gmo-range-row")?.querySelector("output");
+      if (output) output.textContent = `${event.target.value} %`;
     }
   }
 
@@ -724,19 +1155,33 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     if (event.target.matches('select[name="placementMode"]')) {
-      const mode = event.target.value;
-      card.classList.toggle("gmo-placement-fixed", mode === "fixed");
-      card.classList.toggle("gmo-placement-gm", mode === "gm");
-      card.classList.toggle("gmo-placement-player", mode === "player");
-      card.classList.toggle("gmo-placement-floating", mode !== "fixed");
-      if (mode !== "fixed") this.#setFloatingInputsFromAnchor(card);
+      this.#applyPlacementClasses(card, event.target.value);
+      if (event.target.value !== "fixed") this.#setFloatingInputsFromAnchor(card);
       return;
     }
 
     if (event.target.matches('select[name="position"]')) {
       const mode = card.querySelector('select[name="placementMode"]')?.value ?? "fixed";
       if (mode !== "fixed") this.#setFloatingInputsFromAnchor(card);
+      return;
     }
+
+    if (event.target.matches('select[name="contentType"]')) {
+      this.#applyContentClasses(card, event.target.value);
+    }
+  }
+
+  #applyPlacementClasses(card, mode) {
+    card.classList.toggle("gmo-placement-fixed", mode === "fixed");
+    card.classList.toggle("gmo-placement-gm", mode === "gm");
+    card.classList.toggle("gmo-placement-player", mode === "player");
+    card.classList.toggle("gmo-placement-floating", mode !== "fixed");
+  }
+
+  #applyContentClasses(card, type) {
+    card.classList.toggle("gmo-content-media", type === "media");
+    card.classList.toggle("gmo-content-text", type === "text");
+    card.classList.toggle("gmo-content-html", type === "html");
   }
 
   #setFloatingInputsFromAnchor(card) {
@@ -763,20 +1208,23 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     const picker = new foundry.applications.apps.FilePicker({
       type: "imagevideo",
       current: input?.value || "",
-      callback: path => {
-        if (input) input.value = path;
-      }
+      callback: path => { if (input) input.value = path; }
     });
     picker.render({ force: true });
   }
 
+  #hasContent(data) {
+    if (data.contentType === "media") return Boolean(data.media);
+    if (data.contentType === "text") return Boolean(data.textContent?.trim());
+    return Boolean(data.htmlContent?.trim());
+  }
+
   #togglePreview(card) {
     const data = this.#readCard(card);
-    if (!data.media) {
-      ui.notifications.warn("Choisis d’abord une image ou une vidéo.");
+    if (!this.#hasContent(data)) {
+      ui.notifications.warn("Ajoute d’abord un contenu à cette fenêtre.");
       return;
     }
-
     const previewData = { ...data, id: `preview-${data.id}`, darkBackdrop: data.darkBackdrop };
     const existing = document.getElementById(runtimeId(previewData.id));
     if (existing) existing.remove();
@@ -785,11 +1233,10 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async #showOverlay(card) {
     let overlay = await this.#saveCard(card, { render: false });
-    if (!overlay.media) {
-      ui.notifications.warn("Choisis d’abord une image ou une vidéo.");
+    if (!this.#hasContent(overlay)) {
+      ui.notifications.warn("Ajoute d’abord un contenu à cette fenêtre.");
       return;
     }
-
     const targets = resolveTargets(overlay);
     if (!targets.length) {
       ui.notifications.warn("Aucun destinataire sélectionné.");
@@ -805,46 +1252,45 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
 
     broadcastPacket({ action: "sync", overlay, targets });
     const extra = overlay.placementMode === "gm" && !targets.includes(game.user.id)
-      ? " Une copie de contrôle est affichée sur ton écran pour le placement."
+      ? " Une copie de contrôle est affichée sur ton écran pour le placement et la taille."
       : "";
     ui.notifications.info(`« ${overlay.name} » envoyée à ${targets.length} destinataire(s).${extra}`);
     await this.render({ force: true });
   }
 
-  async #resetPosition(card) {
+  async #resetGeometry(card) {
     let overlay = await this.#saveCard(card, { render: false });
     const [x, y] = anchorPosition(overlay.position);
     overlay.floatX = x;
     overlay.floatY = y;
+    const w = overlay.floatWidth;
+    const h = overlay.contentType === "media" ? null : overlay.floatHeight;
 
     const overlays = getStoredOverlays();
     overlays[overlay.id] = overlay;
     await setStoredOverlays(overlays);
 
     if (overlay.placementMode === "gm") {
-      broadcastPacket({ action: "position", overlayId: overlay.id, x, y });
-      ui.notifications.info("Position MJ réinitialisée.");
+      broadcastPacket({ action: "geometry", overlayId: overlay.id, x, y, w, h });
+      ui.notifications.info("Position et taille MJ réinitialisées.");
     } else if (overlay.placementMode === "player") {
       const targets = overlay.active ? overlay.activeRecipients : resolveTargets(overlay);
-      broadcastPacket({ action: "resetPlayerPosition", overlayId: overlay.id, x, y, targets });
-      ui.notifications.info("Position locale réinitialisée chez les destinataires actuellement connectés.");
+      broadcastPacket({ action: "resetPlayerGeometry", overlayId: overlay.id, x, y, w, h, targets });
+      ui.notifications.info("Position et taille locales réinitialisées chez les destinataires connectés.");
     } else {
-      ui.notifications.info("La position fixe utilise déjà le point choisi.");
+      ui.notifications.info("Le mode fixe utilise les réglages de taille et de position du panneau.");
     }
-
     await this.render({ force: true });
   }
 
   async #closeOverlay(id) {
     const overlays = getStoredOverlays();
     if (!overlays[id]) return;
-
     const overlay = normalizeOverlay(overlays[id]);
     overlay.active = false;
     overlay.activeRecipients = [];
     overlays[id] = overlay;
     await setStoredOverlays(overlays);
-
     broadcastPacket({ action: "close", overlayId: id });
     ui.notifications.info(`« ${overlay.name} » fermée.`);
     await this.render({ force: true });
@@ -854,7 +1300,6 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     const overlays = getStoredOverlays();
     const overlay = normalizeOverlay(overlays[id]);
     if (!overlay.id) return;
-
     const confirmed = await DialogV2.confirm({
       window: { title: "Supprimer la fenêtre" },
       content: `<p>Supprimer définitivement <strong>${escapeHTML(overlay.name)}</strong> ?</p>`,
@@ -867,6 +1312,7 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     delete overlays[id];
     await setStoredOverlays(overlays);
     clearPlayerPosition(id);
+    clearPlayerSize(id);
     removeRuntimeOverlay(`preview-${id}`);
     await this.render({ force: true });
   }
@@ -874,7 +1320,6 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
   async #closeAll() {
     const overlays = getStoredOverlays();
     let changed = false;
-
     for (const [id, raw] of Object.entries(overlays)) {
       const overlay = normalizeOverlay(raw);
       if (!overlay.active) continue;
@@ -883,7 +1328,6 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
       overlays[id] = overlay;
       changed = true;
     }
-
     if (changed) await setStoredOverlays(overlays);
     broadcastPacket({ action: "closeAll" });
     ui.notifications.info("Toutes les fenêtres média ont été fermées.");
@@ -913,7 +1357,7 @@ Hooks.once("init", () => {
   game.settings.registerMenu(MODULE_ID, "manager", {
     name: "GEKKO — Media Overlay",
     label: "Ouvrir le gestionnaire",
-    hint: "Créer et diffuser des images ou vidéos dans des fenêtres indépendantes au-dessus de la scène.",
+    hint: "Créer et diffuser des images, vidéos, textes ou contenus HTML dans des fenêtres indépendantes au-dessus de la scène.",
     icon: "gmo-gekko-icon",
     type: MediaOverlayManager,
     restricted: true
@@ -922,10 +1366,7 @@ Hooks.once("init", () => {
 
 Hooks.on("getSceneControlButtons", controls => {
   if (!game.user?.isGM) return;
-
-  const orders = Object.values(controls)
-    .map(control => Number(control?.order))
-    .filter(Number.isFinite);
+  const orders = Object.values(controls).map(control => Number(control?.order)).filter(Number.isFinite);
   const order = orders.length ? Math.max(...orders) + 1 : 100;
 
   controls.gekkoMediaOverlay = {
@@ -935,9 +1376,7 @@ Hooks.on("getSceneControlButtons", controls => {
     order,
     visible: true,
     activeTool: "openManager",
-    onChange: (_event, active) => {
-      if (active) openManager();
-    },
+    onChange: (_event, active) => { if (active) openManager(); },
     tools: {
       openManager: {
         name: "openManager",
@@ -968,7 +1407,8 @@ Hooks.once("ready", () => {
       openManager,
       renderRuntimeOverlay,
       removeRuntimeOverlay,
-      removeAllRuntimeOverlays
+      removeAllRuntimeOverlays,
+      loadCustomFrames
     };
   }
 });
