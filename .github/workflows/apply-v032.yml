@@ -1,0 +1,266 @@
+name: Apply v0.3.2 Frame Fix
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply v0.3.2 frame rendering fix automatically'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch v0.3.2
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          p = Path('scripts/media-overlay.js')
+          s = p.read_text(encoding='utf-8')
+
+          old = '''function customFrameNameFromFile(path) {
+            const filename = String(path ?? "").split("/").pop() ?? "Cadre personnalisé";
+            const stem = filename.replace(/\\.[^.]+$/, "");
+            return stem
+              .replace(/[-_]+/g, " ")
+              .replace(/\\s+/g, " ")
+              .trim()
+              .replace(/(^|\\s)\\S/g, match => match.toUpperCase()) || "Cadre personnalisé";
+          }
+          '''
+          new = '''function customFrameNameFromFile(path) {
+            const rawFilename = String(path ?? "").split("/").pop() ?? "Cadre personnalisé";
+            let filename = rawFilename;
+            try {
+              filename = decodeURIComponent(rawFilename);
+            } catch (_error) {
+              // Certains fournisseurs peuvent renvoyer des noms partiellement encodés.
+            }
+
+            const stem = filename.replace(/\\.[^.]+$/, "");
+            return stem
+              .replace(/[-_]+/g, " ")
+              .replace(/\\s+/g, " ")
+              .trim()
+              .replace(/(^|\\s)\\S/g, match => match.toUpperCase()) || "Cadre personnalisé";
+          }
+          '''
+          if old not in s: raise SystemExit('customFrameNameFromFile pattern not found')
+          s = s.replace(old, new)
+
+          old = '''      next.set(id, {
+                id,
+                name: customFrameNameFromFile(file),
+                image: resolveFoundryPath(file),
+                slice: 32,
+                width: 14,
+                padding: 10,
+                radius: 0,
+                repeat: "stretch"
+              });
+          '''
+          new = '''      next.set(id, {
+                id,
+                name: customFrameNameFromFile(file),
+                image: resolveFoundryPath(file),
+                mode: "overlay"
+              });
+          '''
+          if old not in s: raise SystemExit('simple frame pattern not found')
+          s = s.replace(old, new)
+
+          old = '''        next.set(id, {
+                  id,
+                  name: String(raw.name ?? dir.split("/").pop() ?? "Cadre personnalisé"),
+                  image: resolveFoundryPath(imagePath),
+                  slice: safeFrameValue(raw.slice, 32, 1, 256),
+                  width: safeFrameValue(raw.width, 14, 1, 96),
+                  padding: safeFrameValue(raw.padding, 10, 0, 96),
+                  radius: safeFrameValue(raw.radius, 0, 0, 64),
+                  repeat: ["stretch", "repeat", "round", "space"].includes(raw.repeat) ? raw.repeat : "stretch"
+                });
+          '''
+          new = '''        next.set(id, {
+                  id,
+                  name: String(raw.name ?? dir.split("/").pop() ?? "Cadre personnalisé"),
+                  image: resolveFoundryPath(imagePath),
+                  mode: "border",
+                  slice: safeFrameValue(raw.slice, 32, 1, 256),
+                  width: safeFrameValue(raw.width, 14, 1, 96),
+                  padding: safeFrameValue(raw.padding, 10, 0, 96),
+                  radius: safeFrameValue(raw.radius, 0, 0, 64),
+                  repeat: ["stretch", "repeat", "round", "space"].includes(raw.repeat) ? raw.repeat : "stretch"
+                });
+          '''
+          if old not in s: raise SystemExit('advanced frame pattern not found')
+          s = s.replace(old, new)
+
+          old = '''function frameOptions(current, customFrames) {
+            const builtins = [
+              ["none", "Aucun"],
+              ["simple", "Sobre"],
+              ["metal", "Métal"],
+              ["holo", "Holographique"],
+              ["terminal", "Terminal"],
+              ["fantasy", "Fantasy"]
+            ].map(([value, label]) => ({ value, label, selected: current === value, custom: false }));
+
+            const custom = [...customFrames.values()]
+              .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang))
+              .map(def => ({ value: def.id, label: `Perso — ${def.name}`, selected: current === def.id, custom: true }));
+            return [...builtins, ...custom];
+          }
+          '''
+          new = '''function frameOptions(current, customFrames) {
+            const builtins = [
+              ["none", "Aucun"],
+              ["simple", "Sobre"],
+              ["metal", "Métal"],
+              ["holo", "Holographique"],
+              ["terminal", "Terminal"],
+              ["fantasy", "Fantasy"]
+            ].map(([value, label]) => ({ value, label, selected: current === value }));
+
+            const custom = [...customFrames.values()]
+              .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang))
+              .map(def => ({ value: def.id, label: def.name, selected: current === def.id }));
+
+            return { builtins, custom, hasCustom: custom.length > 0 };
+          }
+          '''
+          if old not in s: raise SystemExit('frameOptions pattern not found')
+          s = s.replace(old, new)
+
+          old = '''  const slice = safeFrameValue(def.slice, 32, 1, 256);
+            const width = safeFrameValue(def.width, 14, 1, 96);
+            const padding = safeFrameValue(def.padding, 10, 0, 96);
+            const radius = safeFrameValue(def.radius, 0, 0, 64);
+
+            frame.classList.add("gmo-frame-custom");
+            frame.style.borderStyle = "solid";
+            frame.style.borderWidth = `${width}px`;
+            frame.style.borderImageSource = `url("${image.replaceAll('"', '%22')}")`;
+            frame.style.borderImageSlice = String(slice);
+            frame.style.borderImageWidth = String(width);
+            frame.style.borderImageRepeat = ["stretch", "repeat", "round", "space"].includes(def.repeat) ? def.repeat : "stretch";
+            frame.style.padding = `${padding}px`;
+            frame.style.borderRadius = `${radius}px`;
+          '''
+          new = '''  frame.classList.add("gmo-frame-custom");
+
+            // Mode simple : conserve l'image entière comme surcouche graphique.
+            if (def.mode === "overlay") {
+              frame.classList.add("gmo-frame-custom-overlay");
+              frame.style.setProperty("--gmo-custom-frame-image", `url("${image.replaceAll('"', '%22')}")`);
+              frame.style.border = "0";
+              frame.style.padding = "0";
+              frame.style.borderRadius = "0";
+              return;
+            }
+
+            // Mode avancé : frame.json garde le 9-slice configurable.
+            const slice = safeFrameValue(def.slice, 32, 1, 256);
+            const width = safeFrameValue(def.width, 14, 1, 96);
+            const padding = safeFrameValue(def.padding, 10, 0, 96);
+            const radius = safeFrameValue(def.radius, 0, 0, 64);
+
+            frame.classList.add("gmo-frame-custom-border");
+            frame.style.borderStyle = "solid";
+            frame.style.borderWidth = `${width}px`;
+            frame.style.borderImageSource = `url("${image.replaceAll('"', '%22')}")`;
+            frame.style.borderImageSlice = String(slice);
+            frame.style.borderImageWidth = String(width);
+            frame.style.borderImageRepeat = ["stretch", "repeat", "round", "space"].includes(def.repeat) ? def.repeat : "stretch";
+            frame.style.padding = `${padding}px`;
+            frame.style.borderRadius = `${radius}px`;
+          '''
+          if old not in s: raise SystemExit('applyFrameStyle pattern not found')
+          s = s.replace(old, new)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('templates/manager.hbs')
+          s = p.read_text(encoding='utf-8')
+          old = '''            <select name="frameStyle">
+                        {{#each frameStyles}}
+                          <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+                        {{/each}}
+                      </select>
+          '''
+          new = '''            <select name="frameStyle">
+                        <optgroup label="Cadres intégrés">
+                          {{#each frameStyles.builtins}}
+                            <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+                          {{/each}}
+                        </optgroup>
+                        {{#if frameStyles.hasCustom}}
+                          <optgroup label="Cadres personnalisés">
+                            {{#each frameStyles.custom}}
+                              <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+                            {{/each}}
+                          </optgroup>
+                        {{/if}}
+                      </select>
+          '''
+          if old not in s: raise SystemExit('template frame select pattern not found')
+          p.write_text(s.replace(old, new), encoding='utf-8')
+
+          p = Path('styles/media-overlay.css')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('/* GEKKO — Media Overlay v0.3.0 */', '/* GEKKO — Media Overlay v0.3.2 */', 1)
+          old = '''.gmo-frame-custom {
+            overflow: hidden;
+            box-sizing: border-box;
+          }
+          '''
+          new = '''.gmo-frame-custom {
+            overflow: hidden;
+            box-sizing: border-box;
+          }
+
+          .gmo-frame-custom-overlay::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 4;
+            background-image: var(--gmo-custom-frame-image);
+            background-position: center;
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            pointer-events: none;
+          }
+          '''
+          if old not in s: raise SystemExit('CSS custom frame pattern not found')
+          p.write_text(s.replace(old, new), encoding='utf-8')
+
+          p = Path('README.md')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace(
+            'Le nom affiché est dérivé automatiquement du nom du fichier et le module applique des réglages de cadre par défaut.',
+            "Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, l'image est conservée entière et superposée à la fenêtre, sans découpage 9-slice."
+          )
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('module.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          data['version'] = '0.3.2'
+          data['download'] = 'https://github.com/thegexgekko/gekko-media-overlay/releases/download/v0.3.2/gekko-media-overlay-0.3.2.zip'
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          node --check scripts/media-overlay.js
+          python -m json.tool module.json >/dev/null
+          rm .github/workflows/apply-v032.yml
+
+          git config user.name "thegexgekko"
+          git config user.email "thegexgekko@gmail.com"
+          git add scripts/media-overlay.js styles/media-overlay.css templates/manager.hbs README.md module.json .github/workflows/apply-v032.yml
+          git commit -m "Fix custom frame rendering and labels in v0.3.2"
+          git push
