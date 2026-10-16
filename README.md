@@ -47,7 +47,7 @@ Data/
         └── nova-frame.svg
 ```
 
-Le nom affiché est dérivé automatiquement du nom du fichier. En mode simple, le module applique automatiquement un découpage 9-slice : les quatre coins restent intacts et seuls les bords s'étirent pour s'adapter au ratio du média. L'épaisseur peut être ajustée directement dans le gestionnaire.
+Le nom affiché est dérivé automatiquement du nom du fichier. Le gestionnaire permet aussi de régler séparément l’épaisseur du cadre et sa marge interne, tandis que l’opacité du fond de fenêtre reste entièrement indépendante. En mode simple, le module applique automatiquement un découpage 9-slice : les quatre coins restent intacts et seuls les bords s'étirent pour s'adapter au ratio du média. L'épaisseur peut être ajustée directement dans le gestionnaire.
 
 ### Ajout avancé — optionnel
 
@@ -86,4 +86,4 @@ Le mode HTML autorise volontairement un sous-ensemble limité : titres, paragrap
 
 Le workflow GitHub Actions `.github/workflows/release.yml` crée automatiquement une release quand une nouvelle version de `module.json` est poussée sur `main`, si le tag correspondant n'existe pas encore.
 
-Version actuelle : **0.3.5**.
+Version actuelle : **0.3.6**.

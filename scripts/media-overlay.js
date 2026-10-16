@@ -38,6 +38,7 @@ const DEFAULT_OVERLAY = Object.freeze({
   frameStyle: "none",
   customFrame: null,
   customFrameThickness: 18,
+  customFramePadding: 8,
   allowPlayerClose: false,
   autoplay: true,
   loop: false,
@@ -119,6 +120,7 @@ function normalizeOverlay(data = {}) {
   overlay.frameStyle = typeof overlay.frameStyle === "string" && overlay.frameStyle ? overlay.frameStyle : "none";
   overlay.customFrame = overlay.customFrame && typeof overlay.customFrame === "object" ? clone(overlay.customFrame) : null;
   overlay.customFrameThickness = clamp(safeNumber(overlay.customFrameThickness, 18), 4, 64);
+  overlay.customFramePadding = clamp(safeNumber(overlay.customFramePadding, 8), 0, 40);
   overlay.allowPlayerClose = Boolean(overlay.allowPlayerClose);
   overlay.preserveRatio = overlay.contentType === "media" ? true : Boolean(overlay.preserveRatio);
   return overlay;
@@ -496,7 +498,7 @@ function applyFrameStyle(frame, overlay) {
     frame.style.setProperty("--gmo-custom-frame-slice", `${safeFrameValue(def.slicePercent, 12, 4, 30)}%`);
     frame.style.setProperty("--gmo-custom-frame-width", `${safeFrameValue(overlay.customFrameThickness, 18, 4, 64)}px`);
     frame.style.border = "0";
-    frame.style.padding = "0";
+    frame.style.padding = `${safeFrameValue(overlay.customFramePadding, 8, 0, 40)}px`;
     frame.style.borderRadius = "0";
     return;
   }
@@ -1168,6 +1170,7 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
       frameStyle,
       customFrame,
       customFrameThickness: Number(get('[name="customFrameThickness"]')?.value || 18),
+      customFramePadding: Number(get('[name="customFramePadding"]')?.value || 8),
       allowPlayerClose: Boolean(get('[name="allowPlayerClose"]')?.checked),
       autoplay: Boolean(get('[name="autoplay"]')?.checked),
       loop: Boolean(get('[name="loop"]')?.checked),
@@ -1229,9 +1232,9 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
   #onInput(event) {
     const card = this.#cardFromTarget(event.target);
     if (!card) return;
-    if (event.target.matches('input[name="contentOpacity"], input[name="backgroundOpacity"], input[name="customFrameThickness"]')) {
+    if (event.target.matches('input[name="contentOpacity"], input[name="backgroundOpacity"], input[name="customFrameThickness"], input[name="customFramePadding"]')) {
       const output = event.target.closest(".gmo-range-row")?.querySelector("output");
-      if (output) output.textContent = event.target.name === "customFrameThickness"
+      if (output) output.textContent = ["customFrameThickness", "customFramePadding"].includes(event.target.name)
         ? `${event.target.value} px`
         : `${event.target.value} %`;
     }
