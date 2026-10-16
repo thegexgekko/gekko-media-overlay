@@ -1,4 +1,4 @@
-/* GEKKO — Media Overlay v0.1.0 */
+/* GEKKO — Media Overlay v0.2.0 */
 
 .gekko-media-overlay-manager .window-content {
   padding: 0;
@@ -37,7 +37,8 @@
 .gmo-card-actions,
 .gmo-file-row,
 .gmo-inline-inputs,
-.gmo-check-row {
+.gmo-check-row,
+.gmo-floating-position-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -145,6 +146,43 @@
   font-weight: 400;
 }
 
+.gmo-placement-hint {
+  display: none;
+  margin-top: 5px;
+  opacity: 0.68;
+  font-size: 0.86em;
+  line-height: 1.35;
+}
+
+.gmo-placement-fixed .gmo-hint-fixed,
+.gmo-placement-gm .gmo-hint-gm,
+.gmo-placement-player .gmo-hint-player {
+  display: block;
+}
+
+.gmo-floating-status {
+  display: none;
+}
+
+.gmo-placement-floating .gmo-floating-status {
+  display: block;
+}
+
+.gmo-floating-position-row {
+  justify-content: space-between;
+  min-height: 32px;
+}
+
+.gmo-floating-position-row > span {
+  opacity: 0.72;
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+}
+
+.gmo-floating-position-row button {
+  flex: 0 0 auto;
+}
+
 .gmo-user-list {
   display: none;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -224,7 +262,6 @@
   font-size: 3rem;
 }
 
-/* Couche d'affichage joueur */
 #gekko-media-overlay-layer {
   position: fixed;
   inset: 0;
@@ -263,6 +300,15 @@
   pointer-events: auto;
 }
 
+.gmo-floating-frame {
+  touch-action: none;
+}
+
+.gmo-floating-frame.is-dragging {
+  cursor: grabbing;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.72);
+}
+
 .gmo-media {
   display: block;
   width: 100%;
@@ -280,6 +326,66 @@
 
 .gmo-runtime-frame video.gmo-media {
   min-height: 1px;
+}
+
+.gmo-floating-chrome {
+  position: absolute;
+  inset: 6px 6px auto 6px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+.gmo-floating-frame:hover .gmo-floating-chrome,
+.gmo-floating-frame.is-dragging .gmo-floating-chrome,
+.gmo-floating-chrome:focus-within {
+  opacity: 1;
+}
+
+.gmo-floating-chrome button {
+  min-height: 26px;
+  height: 26px;
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 6px;
+  background: rgba(10, 10, 12, 0.82);
+  color: #eee;
+  box-shadow: 0 2px 8px #0008;
+  pointer-events: auto;
+}
+
+.gmo-drag-handle {
+  cursor: grab;
+}
+
+.gmo-drag-handle:active {
+  cursor: grabbing;
+}
+
+.gmo-drag-handle span {
+  margin-left: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gmo-runtime-reset {
+  flex: 0 0 auto;
+}
+
+.gmo-controller-badge {
+  margin-left: 2px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(10, 10, 12, 0.82);
+  color: #ddd;
+  font: 700 9px/1 sans-serif;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 8px #0008;
 }
 
 .gmo-preview-label {
@@ -323,15 +429,14 @@
   .gmo-user-list {
     grid-template-columns: 1fr;
   }
+
+  .gmo-drag-handle span {
+    display: none;
+  }
 }
 
-/* Icône GEKKO — conserve le bouton natif Foundry et dessine uniquement le glyphe. */
 .gmo-gekko-icon {
   position: relative;
-  /* IMPORTANT : ne pas appliquer de background/mask ici.
-     Sur les contrôles de scène, cette classe peut être portée par le bouton
-     lui-même ; modifier son background supprimerait le carré semi-transparent
-     natif de Foundry. */
   -webkit-mask: none !important;
   mask: none !important;
 }
