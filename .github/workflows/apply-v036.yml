@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'Run v0.3.6 custom frame padding patch'
+    if: github.event.head_commit.message == 'Retry v0.3.6 custom frame padding patch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,8 +52,8 @@ jobs:
           'read custom frame padding')
 
           js = replace_once(js,
-          '''    if (event.target.matches('input[name="contentOpacity"], input[name="backgroundOpacity"], input[name="customFrameThickness"]')) {\n      const output = event.target.closest(".gmo-range-row")?.querySelector("output");\n      if (output) {\n        output.textContent = event.target.name === "customFrameThickness"\n          ? `${event.target.value} px`\n          : `${event.target.value} %`;\n      }\n    }''',
-          '''    if (event.target.matches('input[name="contentOpacity"], input[name="backgroundOpacity"], input[name="customFrameThickness"], input[name="customFramePadding"]')) {\n      const output = event.target.closest(".gmo-range-row")?.querySelector("output");\n      if (output) {\n        output.textContent = ["customFrameThickness", "customFramePadding"].includes(event.target.name)\n          ? `${event.target.value} px`\n          : `${event.target.value} %`;\n      }\n    }''',
+          '''    if (event.target.matches('input[name="contentOpacity"], input[name="backgroundOpacity"], input[name="customFrameThickness"]')) {\n      const output = event.target.closest(".gmo-range-row")?.querySelector("output");\n      if (output) output.textContent = event.target.name === "customFrameThickness"\n        ? `${event.target.value} px`\n        : `${event.target.value} %`;\n    }''',
+          '''    if (event.target.matches('input[name="contentOpacity"], input[name="backgroundOpacity"], input[name="customFrameThickness"], input[name="customFramePadding"]')) {\n      const output = event.target.closest(".gmo-range-row")?.querySelector("output");\n      if (output) output.textContent = ["customFrameThickness", "customFramePadding"].includes(event.target.name)\n        ? `${event.target.value} px`\n        : `${event.target.value} %`;\n    }''',
           'range output custom frame padding')
 
           js_path.write_text(js, encoding='utf-8')
