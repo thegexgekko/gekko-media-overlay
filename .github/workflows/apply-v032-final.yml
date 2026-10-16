@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'Run final v0.3.2 frame patch'
+    if: github.event.head_commit.message == 'Run final v0.3.2 frame patch v2'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,28 +19,28 @@ jobs:
       - name: Apply v0.3.2 changes
         shell: bash
         run: |
-          patch -p1 --exclude='styles/media-overlay.css' < .github/v032.patch
+          patch -p1 < .github/v032.patch
 
           python <<'PY'
           from pathlib import Path
           p = Path('styles/media-overlay.css')
           s = p.read_text(encoding='utf-8')
-          marker = '/* Contrôles runtime : restent toujours opaques, même si le contenu ne l\'est pas. */'
+          marker = "/* Contrôles runtime : restent toujours opaques, même si le contenu ne l'est pas. */"
           addition = '''/* Les cadres simples sont rendus comme une surcouche complète. Cela conserve
-             leur dessin au lieu de les découper arbitrairement en 9-slice. */
-          .gmo-frame-custom-overlay::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 4;
-            background-image: var(--gmo-custom-frame-image);
-            background-position: center;
-            background-size: 100% 100%;
-            background-repeat: no-repeat;
-            pointer-events: none;
-          }
+   leur dessin au lieu de les découper arbitrairement en 9-slice. */
+.gmo-frame-custom-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background-image: var(--gmo-custom-frame-image);
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
 
-          '''
+'''
           if '.gmo-frame-custom-overlay::after' not in s:
               if marker not in s:
                   raise SystemExit('CSS insertion marker not found')
