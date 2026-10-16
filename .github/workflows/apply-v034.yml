@@ -1,0 +1,89 @@
+name: Apply v0.3.4 Floating Initialization
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply v0.3.4 floating initialization fix'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply v0.3.4 changes
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import json
+
+          js_path = Path('scripts/media-overlay.js')
+          js = js_path.read_text(encoding='utf-8')
+
+          old = '''    const pos = floatingPositionFor(overlay);
+              const size = floatingSizeFor(overlay);
+              setFloatingFramePosition(frame, pos.x, pos.y, { clampToViewport: false });'''
+          new = '''    const pos = floatingPositionFor(overlay);
+              if (overlay.resetFloatingSize && overlay.placementMode === "player") {
+                clearPlayerSize(overlay.id);
+              }
+              const size = overlay.resetFloatingSize
+                ? { w: initialFloatingWidthFor(overlay), h: overlay.floatHeight }
+                : floatingSizeFor(overlay);
+              setFloatingFramePosition(frame, pos.x, pos.y, { clampToViewport: false });'''
+          if old not in js:
+              raise SystemExit('render floating marker not found')
+          js = js.replace(old, new, 1)
+
+          old = '''    overlay = normalizeOverlay(overlays[overlay.id]);
+              if (!overlay.active && overlay.placementMode !== "fixed") {
+                overlay.floatWidth = initialFloatingWidthFor(overlay);
+              }
+              overlay.active = true;'''
+          new = '''    overlay = normalizeOverlay(overlays[overlay.id]);
+              const resetFloatingSize = !overlay.active && overlay.placementMode !== "fixed";
+              if (resetFloatingSize) {
+                overlay.floatWidth = initialFloatingWidthFor(overlay);
+              }
+              overlay.active = true;'''
+          if old not in js:
+              raise SystemExit('show state marker not found')
+          js = js.replace(old, new, 1)
+
+          old = '    broadcastPacket({ action: "sync", overlay, targets });'
+          new = '    broadcastPacket({ action: "sync", overlay: { ...overlay, resetFloatingSize }, targets });'
+          if old not in js:
+              raise SystemExit('sync packet marker not found')
+          js = js.replace(old, new, 1)
+
+          js = js.replace(
+              '// complet et on le superpose à la fenêtre, sans découpage 9-slice arbitraire.',
+              '// complet et on l\'agrandit autour de la fenêtre, sans découpage 9-slice arbitraire.',
+              1
+          )
+
+          js_path.write_text(js, encoding='utf-8')
+
+          module_path = Path('module.json')
+          module = json.loads(module_path.read_text(encoding='utf-8'))
+          module['version'] = '0.3.4'
+          module['download'] = 'https://github.com/thegexgekko/gekko-media-overlay/releases/download/v0.3.4/gekko-media-overlay-0.3.4.zip'
+          module_path.write_text(json.dumps(module, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          node --check scripts/media-overlay.js
+          python -m json.tool module.json >/dev/null
+
+          rm -f .github/workflows/apply-v034.yml
+
+          git config user.name "thegexgekko"
+          git config user.email "thegexgekko@gmail.com"
+          git add -A
+          git commit -m "Honor configured initial width for every floating display in v0.3.4"
+          git push
