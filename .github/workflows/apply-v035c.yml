@@ -1,0 +1,31 @@
+name: Apply v0.3.5 Source Patch
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch source
+        run: python .github/patch-v035.py
+
+      - name: Validate JavaScript
+        run: node --check scripts/media-overlay.js
+
+      - name: Commit patch
+        run: |
+          rm -f .github/patch-v035.py .github/workflows/apply-v035c.yml
+          git config user.name "thegexgekko"
+          git config user.email "thegexgekko@gmail.com"
+          git add -A
+          git commit -m "Add automatic 9-slice frames and corner resize handle"
+          git push
