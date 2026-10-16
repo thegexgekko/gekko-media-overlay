@@ -116,30 +116,6 @@ diff -ruN gmo-v031/scripts/media-overlay.js gmo-v032/scripts/media-overlay.js
  }
  
  const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
-diff -ruN gmo-v031/styles/media-overlay.css gmo-v032/styles/media-overlay.css
---- gmo-v031/styles/media-overlay.css	2026-10-16 08:57:25.577217590 +0000
-+++ gmo-v032/styles/media-overlay.css	2026-10-16 09:11:04.331127030 +0000
-@@ -458,6 +458,20 @@
-   box-sizing: border-box;
- }
- 
-+/* Les cadres simples sont rendus comme une surcouche complète. Cela conserve
-+   leur dessin au lieu de les découper arbitrairement en 9-slice. */
-+.gmo-frame-custom-overlay::after {
-+  content: "";
-+  position: absolute;
-+  inset: 0;
-+  z-index: 4;
-+  background-image: var(--gmo-custom-frame-image);
-+  background-position: center;
-+  background-size: 100% 100%;
-+  background-repeat: no-repeat;
-+  pointer-events: none;
-+}
-+
- /* Contrôles runtime : restent toujours opaques, même si le contenu ne l'est pas. */
- .gmo-floating-chrome {
-   position: absolute;
 diff -ruN gmo-v031/templates/manager.hbs gmo-v032/templates/manager.hbs
 --- gmo-v031/templates/manager.hbs	2026-10-16 08:09:56.673594333 +0000
 +++ gmo-v032/templates/manager.hbs	2026-10-16 09:11:04.331020340 +0000
