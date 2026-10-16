@@ -1,0 +1,349 @@
+/* GEKKO — Media Overlay v0.1.0 */
+
+.gekko-media-overlay-manager .window-content {
+  padding: 0;
+}
+
+.gmo-manager-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.gmo-manager-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 0 0 auto;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border-light-2, #7776);
+}
+
+.gmo-manager-toolbar h2 {
+  margin: 0 0 3px;
+}
+
+.gmo-manager-toolbar p {
+  margin: 0;
+  opacity: 0.75;
+  font-size: 0.9em;
+}
+
+.gmo-toolbar-actions,
+.gmo-card-actions,
+.gmo-file-row,
+.gmo-inline-inputs,
+.gmo-check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gmo-toolbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.gmo-overlay-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.gmo-overlay-card {
+  border: 1px solid var(--color-border-light-2, #7778);
+  border-radius: 8px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--color-bg, #191919) 92%, transparent);
+  box-shadow: 0 2px 8px #0003;
+}
+
+.gmo-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gmo-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.gmo-status {
+  white-space: nowrap;
+  opacity: 0.72;
+  font-size: 0.9em;
+}
+
+.gmo-status.is-active {
+  opacity: 1;
+  font-weight: 700;
+}
+
+.gmo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.gmo-field {
+  min-width: 0;
+}
+
+.gmo-field-wide {
+  grid-column: 1 / -1;
+}
+
+.gmo-field > label,
+.gmo-targeting > label:first-child {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.gmo-field input[type="text"],
+.gmo-field input[type="number"],
+.gmo-field select,
+.gmo-name {
+  width: 100%;
+}
+
+.gmo-file-row input {
+  flex: 1 1 auto;
+}
+
+.gmo-file-row button {
+  flex: 0 0 auto;
+}
+
+.gmo-inline-inputs input {
+  flex: 1 1 55%;
+}
+
+.gmo-inline-inputs select {
+  flex: 1 1 45%;
+}
+
+.gmo-check-row {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.gmo-check-row label,
+.gmo-include-gm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 400;
+}
+
+.gmo-user-list {
+  display: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-border-light-2, #7776);
+  border-radius: 6px;
+}
+
+.gmo-target-selected .gmo-user-list {
+  display: grid;
+}
+
+.gmo-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gmo-user.is-offline {
+  opacity: 0.55;
+}
+
+.gmo-user-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #48a868;
+  box-shadow: 0 0 5px #48a86899;
+}
+
+.gmo-user.is-offline .gmo-user-dot {
+  background: #777;
+  box-shadow: none;
+}
+
+.gmo-include-gm {
+  margin-top: 8px;
+}
+
+.gmo-card-actions {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-light-2, #7775);
+  flex-wrap: wrap;
+}
+
+.gmo-card-actions button {
+  flex: 1 1 auto;
+}
+
+.gmo-card-actions .gmo-danger {
+  flex: 0 0 auto;
+}
+
+.gmo-primary {
+  font-weight: 700;
+}
+
+.gmo-danger,
+.gmo-danger-soft {
+  --button-text-color: #fff;
+}
+
+.gmo-empty-state {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-height: 220px;
+  text-align: center;
+  opacity: 0.75;
+}
+
+.gmo-empty-state > i {
+  font-size: 3rem;
+}
+
+/* Couche d'affichage joueur */
+#gekko-media-overlay-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.gmo-runtime {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gmo-runtime-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.58);
+  pointer-events: none;
+}
+
+.gmo-runtime-frame {
+  position: fixed;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  min-width: 80px;
+  min-height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(7, 8, 12, 0.92);
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.gmo-media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: transparent;
+}
+
+.gmo-runtime-frame[style*="height: auto"] .gmo-media,
+.gmo-preserve-ratio .gmo-media {
+  height: auto;
+}
+
+.gmo-runtime-frame video.gmo-media {
+  min-height: 1px;
+}
+
+.gmo-preview-label {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: white;
+  font: 600 11px/1.2 sans-serif;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.gmo-pos-top-left { top: 16px; left: 16px; }
+.gmo-pos-top { top: 16px; left: 50%; transform: translateX(-50%); }
+.gmo-pos-top-right { top: 16px; right: 16px; }
+.gmo-pos-left { top: 50%; left: 16px; transform: translateY(-50%); }
+.gmo-pos-center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.gmo-pos-right { top: 50%; right: 16px; transform: translateY(-50%); }
+.gmo-pos-bottom-left { bottom: 16px; left: 16px; }
+.gmo-pos-bottom { bottom: 16px; left: 50%; transform: translateX(-50%); }
+.gmo-pos-bottom-right { bottom: 16px; right: 16px; }
+
+@media (max-width: 700px) {
+  .gmo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gmo-field-wide {
+    grid-column: 1;
+  }
+
+  .gmo-manager-toolbar {
+    flex-direction: column;
+  }
+
+  .gmo-user-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Icône GEKKO — conserve le bouton natif Foundry et dessine uniquement le glyphe. */
+.gmo-gekko-icon {
+  position: relative;
+  /* IMPORTANT : ne pas appliquer de background/mask ici.
+     Sur les contrôles de scène, cette classe peut être portée par le bouton
+     lui-même ; modifier son background supprimerait le carré semi-transparent
+     natif de Foundry. */
+  -webkit-mask: none !important;
+  mask: none !important;
+}
+
+.gmo-gekko-icon::before {
+  content: "";
+  display: inline-block;
+  width: 1.22em;
+  height: 1.22em;
+  vertical-align: -0.19em;
+  background-color: currentColor;
+  -webkit-mask: url("../icons/gekko-glyph.png") center / contain no-repeat;
+  mask: url("../icons/gekko-glyph.png") center / contain no-repeat;
+  pointer-events: none;
+}
