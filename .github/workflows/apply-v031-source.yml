@@ -1,0 +1,36 @@
+name: Apply v0.3.1 Source Patch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/v031-media-overlay.patch'
+      - '.github/workflows/apply-v031-source.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply source patch
+        shell: bash
+        run: |
+          git apply --check .github/v031-media-overlay.patch
+          git apply .github/v031-media-overlay.patch
+          rm .github/v031-media-overlay.patch
+          rm .github/workflows/apply-v031-source.yml
+
+      - name: Commit patched source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add simple custom frame loading"
+          git push
