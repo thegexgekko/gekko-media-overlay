@@ -2,9 +2,12 @@
   <header class="gmo-manager-toolbar">
     <div>
       <h2>Fenêtres média</h2>
-      <p>Chaque fenêtre possède son propre média, sa taille, son placement et ses destinataires.</p>
+      <p>Chaque fenêtre possède son contenu, son style, sa taille, sa position et ses destinataires.</p>
     </div>
     <div class="gmo-toolbar-actions">
+      <button type="button" data-action="reloadFrames" title="Recharge les cadres personnalisés depuis Data/{{customFrameRoot}}">
+        <i class="fa-solid fa-rotate"></i> Cadres perso
+      </button>
       <button type="button" data-action="new">
         <i class="fa-solid fa-plus"></i> Nouvelle fenêtre
       </button>
@@ -18,13 +21,13 @@
     <div class="gmo-empty-state">
       <i class="fa-solid fa-photo-film"></i>
       <strong>Aucune fenêtre configurée.</strong>
-      <span>Crée ta première fenêtre média avec le bouton ci-dessus.</span>
+      <span>Crée ta première fenêtre avec le bouton ci-dessus.</span>
     </div>
   {{/unless}}
 
   <div class="gmo-overlay-list">
     {{#each overlays}}
-      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}} {{#if isFixedMode}}gmo-placement-fixed{{/if}} {{#if isGMFloatingMode}}gmo-placement-gm gmo-placement-floating{{/if}} {{#if isPlayerFloatingMode}}gmo-placement-player gmo-placement-floating{{/if}}" data-overlay-id="{{id}}">
+      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}} {{#if isFixedMode}}gmo-placement-fixed{{else}}gmo-placement-floating{{/if}} {{#if isGMFloatingMode}}gmo-placement-gm{{/if}} {{#if isPlayerFloatingMode}}gmo-placement-player{{/if}} {{#if isMediaContent}}gmo-content-media{{/if}} {{#if isTextContent}}gmo-content-text{{/if}} {{#if isHtmlContent}}gmo-content-html{{/if}}" data-overlay-id="{{id}}">
         <div class="gmo-card-header">
           <input class="gmo-name" name="name" type="text" value="{{name}}" aria-label="Nom de la fenêtre">
           <span class="gmo-status {{#if active}}is-active{{/if}}">
@@ -34,7 +37,25 @@
         </div>
 
         <div class="gmo-grid">
-          <div class="gmo-field gmo-field-wide">
+          <div class="gmo-field">
+            <label>Type de contenu</label>
+            <select name="contentType">
+              {{#each contentTypes}}
+                <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+          </div>
+
+          <div class="gmo-field">
+            <label>Cadre</label>
+            <select name="frameStyle">
+              {{#each frameStyles}}
+                <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+          </div>
+
+          <div class="gmo-field gmo-field-wide gmo-media-content-field">
             <label>Média</label>
             <div class="gmo-file-row">
               <input name="media" type="text" value="{{media}}" placeholder="images/scene.webp ou videos/transmission.webm">
@@ -44,8 +65,36 @@
             </div>
           </div>
 
+          <div class="gmo-field gmo-field-wide gmo-text-content-field">
+            <label>Texte</label>
+            <textarea name="textContent" rows="5" placeholder="Texte à afficher chez les joueurs">{{textContent}}</textarea>
+          </div>
+
+          <div class="gmo-field gmo-field-wide gmo-html-content-field">
+            <label>HTML simple</label>
+            <textarea name="htmlContent" rows="7" placeholder="<h2>Titre</h2><p>Contenu...</p>">{{htmlContent}}</textarea>
+            <small class="gmo-field-help">Les scripts, événements JavaScript et styles inline sont filtrés automatiquement.</small>
+          </div>
+
+          <div class="gmo-field gmo-rich-options-field">
+            <label>Texte — alignement</label>
+            <select name="textAlign">
+              {{#each textAligns}}
+                <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+          </div>
+
+          <div class="gmo-field gmo-rich-options-field">
+            <label>Texte — taille / couleur</label>
+            <div class="gmo-inline-inputs">
+              <input name="textFontSize" type="number" min="8" max="96" step="1" value="{{textFontSize}}" title="Taille de police en pixels">
+              <input name="textColor" type="color" value="{{textColor}}" title="Couleur du texte">
+            </div>
+          </div>
+
           <div class="gmo-field">
-            <label>Largeur</label>
+            <label>Largeur initiale / mode fixe</label>
             <div class="gmo-inline-inputs">
               <input name="width" type="number" min="1" max="4000" step="1" value="{{width}}">
               <select name="widthUnit">
@@ -57,7 +106,7 @@
           </div>
 
           <div class="gmo-field">
-            <label>Hauteur</label>
+            <label>Hauteur initiale / mode fixe</label>
             <div class="gmo-inline-inputs">
               <input name="height" type="number" min="0" max="4000" step="1" value="{{height}}">
               <select name="heightUnit">
@@ -68,26 +117,20 @@
             </div>
           </div>
 
-          <div class="gmo-field gmo-field-wide">
+          <div class="gmo-field">
             <label>Mode de positionnement</label>
             <select name="placementMode">
               {{#each placementModes}}
                 <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
               {{/each}}
             </select>
-            <div class="gmo-placement-hint gmo-hint-fixed">
-              La fenêtre reste ancrée au point choisi.
-            </div>
-            <div class="gmo-placement-hint gmo-hint-gm">
-              Le MJ déplace la fenêtre sur son écran ; sa position est synchronisée en direct chez les joueurs.
-            </div>
-            <div class="gmo-placement-hint gmo-hint-player">
-              Chaque joueur déplace sa propre copie indépendamment. Sa position est mémorisée localement dans son navigateur.
-            </div>
+            <small class="gmo-placement-hint gmo-hint-fixed">La fenêtre reste à l'un des 9 points prédéfinis.</small>
+            <small class="gmo-placement-hint gmo-hint-gm">Le MJ déplace et redimensionne la fenêtre ; les joueurs suivent en direct.</small>
+            <small class="gmo-placement-hint gmo-hint-player">Chaque joueur déplace et redimensionne sa copie indépendamment.</small>
           </div>
 
           <div class="gmo-field">
-            <label>Position fixe / initiale</label>
+            <label>Position initiale</label>
             <select name="position">
               {{#each positions}}
                 <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
@@ -99,19 +142,38 @@
             <label>Position flottante</label>
             <div class="gmo-floating-position-row">
               <span data-floating-coordinates>X {{floatX}} % · Y {{floatY}} %</span>
-              <button type="button" data-action="resetPosition" title="Réinitialiser au point initial">
+              <button type="button" data-action="resetPosition" title="Réinitialiser position et taille">
                 <i class="fa-solid fa-crosshairs"></i> Réinitialiser
               </button>
             </div>
             <input name="floatX" type="hidden" value="{{floatX}}">
             <input name="floatY" type="hidden" value="{{floatY}}">
+            <input name="floatWidth" type="hidden" value="{{floatWidth}}">
+            <input name="floatHeight" type="hidden" value="{{floatHeight}}">
           </div>
 
           <div class="gmo-field gmo-options-field">
             <label>Affichage</label>
             <div class="gmo-check-row">
-              <label><input name="preserveRatio" type="checkbox" {{#if preserveRatio}}checked{{/if}}> Ratio</label>
-              <label><input name="darkBackdrop" type="checkbox" {{#if darkBackdrop}}checked{{/if}}> Fond sombre</label>
+              <label title="Le redimensionnement des images et vidéos conserve toujours le ratio d’origine"><input name="preserveRatio" type="checkbox" checked disabled> Ratio média verrouillé</label>
+              <label><input name="darkBackdrop" type="checkbox" {{#if darkBackdrop}}checked{{/if}}> Fond sombre plein écran</label>
+              <label><input name="allowPlayerClose" type="checkbox" {{#if allowPlayerClose}}checked{{/if}}> Joueur peut fermer</label>
+            </div>
+          </div>
+
+          <div class="gmo-field">
+            <label>Opacité du contenu</label>
+            <div class="gmo-range-row">
+              <input name="contentOpacity" type="range" min="10" max="100" step="1" value="{{contentOpacity}}">
+              <output>{{contentOpacity}} %</output>
+            </div>
+          </div>
+
+          <div class="gmo-field">
+            <label>Opacité du fond de fenêtre</label>
+            <div class="gmo-range-row">
+              <input name="backgroundOpacity" type="range" min="0" max="100" step="1" value="{{backgroundOpacity}}">
+              <output>{{backgroundOpacity}} %</output>
             </div>
           </div>
 
