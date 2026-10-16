@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'Run final v0.3.2 frame patch v4'
+    if: github.event.head_commit.message == 'Run final v0.3.2 frame patch v5'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,33 +20,15 @@ jobs:
         shell: bash
         run: |
           patch -p1 < .github/v032.patch
-
           if ! grep -q 'gmo-frame-custom-overlay::after' styles/media-overlay.css; then
-            cat >> styles/media-overlay.css <<'CSS'
-
-/* Cadres personnalisés simples : image complète superposée à la fenêtre. */
-.gmo-frame-custom-overlay::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  background-image: var(--gmo-custom-frame-image);
-  background-position: center;
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  pointer-events: none;
-}
-CSS
+            echo 'CgovKiBDYWRyZXMgcGVyc29ubmFsaXPDqXMgc2ltcGxlcyA6IGltYWdlIGNvbXBsw6h0ZSBzdXBlcnBvc8OpZSDDoCBsYSBmZW7DqnRyZS4gKi8KLmdtby1mcmFtZS1jdXN0b20tb3ZlcmxheTo6YWZ0ZXIgewogIGNvbnRlbnQ6ICIiOwogIHBvc2l0aW9uOiBhYnNvbHV0ZTsKICBpbnNldDogMDsKICB6LWluZGV4OiA0OwogIGJhY2tncm91bmQtaW1hZ2U6IHZhcigtLWdtby1jdXN0b20tZnJhbWUtaW1hZ2UpOwogIGJhY2tncm91bmQtcG9zaXRpb246IGNlbnRlcjsKICBiYWNrZ3JvdW5kLXNpemU6IDEwMCUgMTAwJTsKICBiYWNrZ3JvdW5kLXJlcGVhdDogbm8tcmVwZWF0OwogIHBvaW50ZXItZXZlbnRzOiBub25lOwp9Cg==' | base64 -d >> styles/media-overlay.css
           fi
-
           node --check scripts/media-overlay.js
           python -m json.tool module.json >/dev/null
-
           rm -f .github/v032.patch
           rm -f .github/workflows/apply-v032.yml
           rm -f .github/workflows/apply-v032-patch.yml
           rm -f .github/workflows/apply-v032-final.yml
-
           git config user.name "thegexgekko"
           git config user.email "thegexgekko@gmail.com"
           git add -A
