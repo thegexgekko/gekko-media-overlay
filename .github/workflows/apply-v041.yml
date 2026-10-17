@@ -1,0 +1,93 @@
+name: Apply v0.4.1 Token Bounds Fix
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Run v0.4.1 token bounds fix'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply fix
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          js_path = Path('scripts/media-overlay.js')
+          js = js_path.read_text(encoding='utf-8')
+
+          pattern = re.compile(r'''function tokenScreenBounds\(token\) \{.*?\n\}\n\nfunction positionTokenAttachedFrame''', re.S)
+          replacement = '''function tokenScreenBounds(token) {
+  if (!token) return null;
+  const bounds = token.getBounds?.();
+  if (!bounds) return null;
+
+  // PIXI getBounds() renvoie déjà les coordonnées globales après pan/zoom.
+  // Il ne faut donc surtout pas réappliquer canvas.stage.worldTransform,
+  // sinon le déplacement/zoom est compté deux fois et la fenêtre part hors écran.
+  const view = canvas?.app?.canvas ?? canvas?.app?.view;
+  const viewRect = view?.getBoundingClientRect?.() ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+  const screenWidth = canvas?.app?.screen?.width || canvas?.app?.renderer?.screen?.width || viewRect.width || window.innerWidth || 1;
+  const screenHeight = canvas?.app?.screen?.height || canvas?.app?.renderer?.screen?.height || viewRect.height || window.innerHeight || 1;
+  const scaleX = (viewRect.width || screenWidth) / screenWidth;
+  const scaleY = (viewRect.height || screenHeight) / screenHeight;
+
+  return {
+    left: viewRect.left + bounds.x * scaleX,
+    top: viewRect.top + bounds.y * scaleY,
+    width: bounds.width * scaleX,
+    height: bounds.height * scaleY
+  };
+}
+
+function positionTokenAttachedFrame'''
+
+          js, count = pattern.subn(replacement, js, count=1)
+          if count != 1:
+              raise SystemExit(f'Expected one tokenScreenBounds block, found {count}')
+          js_path.write_text(js, encoding='utf-8')
+
+          module_path = Path('module.json')
+          module = json.loads(module_path.read_text(encoding='utf-8'))
+          module['version'] = '0.4.1'
+          module['download'] = 'https://github.com/thegexgekko/gekko-media-overlay/releases/download/v0.4.1/gekko-media-overlay-0.4.1.zip'
+          module_path.write_text(json.dumps(module, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          readme_path = Path('README.md')
+          readme = readme_path.read_text(encoding='utf-8')
+          readme = readme.replace('Version actuelle : **0.4.0**.', 'Version actuelle : **0.4.1**.')
+          readme_path.write_text(readme, encoding='utf-8')
+
+          css_path = Path('styles/media-overlay.css')
+          css = css_path.read_text(encoding='utf-8')
+          css = css.replace('/* GEKKO — Media Overlay v0.3.5 */', '/* GEKKO — Media Overlay v0.4.1 */', 1)
+          css_path.write_text(css, encoding='utf-8')
+
+          Path('.github/workflows/apply-v041.yml').unlink(missing_ok=True)
+          PY
+
+      - name: Validate JavaScript
+        run: node --check scripts/media-overlay.js
+
+      - name: Validate manifest
+        run: node -e "const m=require('./module.json'); if(m.version!=='0.4.1') process.exit(1); if(!m.download.includes('/v0.4.1/')) process.exit(1);"
+
+      - name: Commit v0.4.1
+        shell: bash
+        run: |
+          git config user.name "thegexgekko"
+          git config user.email "thegexgekko@gmail.com"
+          git add -A
+          git commit -m "Fix token-attached overlay visibility in v0.4.1"
+          git push
