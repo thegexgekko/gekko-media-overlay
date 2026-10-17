@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'Run v0.4.3 runtime settings button'
+    if: github.event.head_commit.message == 'Retry v0.4.3 runtime settings button'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
