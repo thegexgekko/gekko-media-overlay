@@ -1,4 +1,4 @@
-/* GEKKO — Media Overlay v0.4.2 */
+/* GEKKO — Media Overlay v0.4.3 */
 
 .gekko-media-overlay-manager .window-content {
   padding: 0;
@@ -556,6 +556,16 @@
   margin-left: 5px;
   font-size: 11px;
   font-weight: 700;
+}
+
+.gmo-runtime-settings {
+  cursor: pointer;
+}
+
+.gmo-overlay-card.gmo-settings-focus {
+  outline: 2px solid rgba(255, 170, 45, 0.92);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 170, 45, 0.22), 0 0 18px rgba(255, 170, 45, 0.22);
 }
 
 .gmo-drag-handle {

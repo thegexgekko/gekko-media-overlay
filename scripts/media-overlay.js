@@ -633,7 +633,8 @@ function addRuntimeChrome(frame, overlay, { preview = false, controllerOnly = fa
   const canDrag = canDragOverlay(overlay, { preview });
   const canResize = canResizeOverlay(overlay, { preview });
   const canClose = canPlayerClose(overlay, { preview, controllerOnly });
-  if (!canDrag && !canResize && !canClose && !controllerOnly) return;
+  const canOpenSettings = !preview && Boolean(game.user?.isGM);
+  if (!canDrag && !canResize && !canClose && !controllerOnly && !canOpenSettings) return;
 
   const chrome = document.createElement("div");
   chrome.className = "gmo-floating-chrome";
@@ -672,6 +673,21 @@ function addRuntimeChrome(frame, overlay, { preview = false, controllerOnly = fa
       }
     });
     chrome.appendChild(reset);
+  }
+
+  if (canOpenSettings) {
+    const settings = document.createElement("button");
+    settings.type = "button";
+    settings.className = "gmo-runtime-settings";
+    settings.title = "Ouvrir les réglages de cette fenêtre";
+    settings.setAttribute("aria-label", "Ouvrir les réglages de cette fenêtre");
+    settings.innerHTML = '<i class="fa-solid fa-gear"></i><span>Réglages</span>';
+    settings.addEventListener("click", async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      await openManagerForOverlay(overlay.id);
+    });
+    chrome.appendChild(settings);
   }
 
   if (canClose) {
@@ -1668,6 +1684,26 @@ function openManager() {
   managerInstance.render({ force: true });
 }
 
+async function openManagerForOverlay(overlayId) {
+  if (!game.user?.isGM || !overlayId) return;
+  collapsedOverlayIds.delete(overlayId);
+  openManager();
+  if (!managerInstance) return;
+
+  await managerInstance.render({ force: true });
+  managerInstance.bringToFront?.();
+
+  requestAnimationFrame(() => {
+    const cards = [...(managerInstance?.element?.querySelectorAll?.("[data-overlay-id]") ?? [])];
+    const card = cards.find(element => element.dataset.overlayId === overlayId);
+    if (!card) return;
+    card.classList.remove("gmo-collapsed");
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    card.classList.add("gmo-settings-focus");
+    window.setTimeout(() => card.classList.remove("gmo-settings-focus"), 1400);
+  });
+}
+
 
 async function createAttachedOverlayForToken(token) {
   if (!game.user?.isGM) return;
@@ -1792,6 +1828,7 @@ Hooks.once("ready", () => {
   if (module) {
     module.api = {
       openManager,
+      openManagerForOverlay,
       renderRuntimeOverlay,
       removeRuntimeOverlay,
       removeAllRuntimeOverlays,
