@@ -27,7 +27,7 @@
 
   <div class="gmo-overlay-list">
     {{#each overlays}}
-      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}} {{#if isFixedMode}}gmo-placement-fixed{{else}}gmo-placement-floating{{/if}} {{#if isGMFloatingMode}}gmo-placement-gm{{/if}} {{#if isPlayerFloatingMode}}gmo-placement-player{{/if}} {{#if isMediaContent}}gmo-content-media{{/if}} {{#if isTextContent}}gmo-content-text{{/if}} {{#if isHtmlContent}}gmo-content-html{{/if}} {{#if isCustomFrame}}gmo-frame-custom-selected{{/if}}" data-overlay-id="{{id}}">
+      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}} {{#if isFixedMode}}gmo-placement-fixed{{else}}gmo-placement-floating{{/if}} {{#if isGMFloatingMode}}gmo-placement-gm{{/if}} {{#if isPlayerFloatingMode}}gmo-placement-player{{/if}} {{#if isTokenMode}}gmo-placement-token{{/if}} {{#if isMediaContent}}gmo-content-media{{/if}} {{#if isTextContent}}gmo-content-text{{/if}} {{#if isHtmlContent}}gmo-content-html{{/if}} {{#if isCustomFrame}}gmo-frame-custom-selected{{/if}}" data-overlay-id="{{id}}">
         <div class="gmo-card-header">
           <input class="gmo-name" name="name" type="text" value="{{name}}" aria-label="Nom de la fenêtre">
           <span class="gmo-status {{#if active}}is-active{{/if}}">
@@ -154,9 +154,36 @@
             <small class="gmo-placement-hint gmo-hint-fixed">La fenêtre reste à l'un des 9 points prédéfinis.</small>
             <small class="gmo-placement-hint gmo-hint-gm">Le MJ déplace et redimensionne la fenêtre ; les joueurs suivent en direct.</small>
             <small class="gmo-placement-hint gmo-hint-player">Chaque joueur déplace et redimensionne sa copie indépendamment.</small>
+            <small class="gmo-placement-hint gmo-hint-token">La fenêtre suit le token et reste contrôlable uniquement par le MJ.</small>
           </div>
 
-          <div class="gmo-field">
+          <div class="gmo-field gmo-token-options">
+            <label>Token lié</label>
+            <select name="tokenId">
+              <option value="">— Choisir un token —</option>
+              {{#each tokenOptions}}
+                <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+            <input name="tokenSceneId" type="hidden" value="{{tokenSceneId}}">
+            <input name="tokenName" type="hidden" value="{{tokenName}}">
+          </div>
+
+          <div class="gmo-field gmo-token-options">
+            <label>Position autour du token</label>
+            <select name="tokenAnchor">
+              {{#each tokenAnchors}}
+                <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+            <label class="gmo-token-distance-label">Distance du token</label>
+            <div class="gmo-range-row">
+              <input name="tokenDistance" type="range" min="0" max="200" step="1" value="{{tokenDistance}}">
+              <output>{{tokenDistance}} px</output>
+            </div>
+          </div>
+
+          <div class="gmo-field gmo-screen-position-options">
             <label>Position initiale</label>
             <select name="position">
               {{#each positions}}
@@ -184,7 +211,7 @@
             <div class="gmo-check-row">
               <label title="Le redimensionnement des images et vidéos conserve toujours le ratio d’origine"><input name="preserveRatio" type="checkbox" checked disabled> Ratio média verrouillé</label>
               <label><input name="darkBackdrop" type="checkbox" {{#if darkBackdrop}}checked{{/if}}> Fond sombre plein écran</label>
-              <label><input name="allowPlayerClose" type="checkbox" {{#if allowPlayerClose}}checked{{/if}}> Joueur peut fermer</label>
+              <label class="gmo-player-close-option"><input name="allowPlayerClose" type="checkbox" {{#if allowPlayerClose}}checked{{/if}}> Joueur peut fermer</label>
             </div>
           </div>
 

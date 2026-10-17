@@ -175,7 +175,8 @@
 
 .gmo-placement-fixed .gmo-hint-fixed,
 .gmo-placement-gm .gmo-hint-gm,
-.gmo-placement-player .gmo-hint-player {
+.gmo-placement-player .gmo-hint-player,
+.gmo-placement-token .gmo-hint-token {
   display: block;
 }
 
@@ -648,4 +649,26 @@
 
 .gmo-runtime-frame.is-resizing .gmo-resize-corner {
   transform: scale(1.08);
+}
+
+
+/* Fenêtres média attachées à un token. */
+.gmo-token-options { display: none; }
+.gmo-placement-token .gmo-token-options { display: block; }
+.gmo-placement-token .gmo-screen-position-options,
+.gmo-placement-token .gmo-floating-status,
+.gmo-placement-token .gmo-player-close-option { display: none; }
+.gmo-token-distance-label {
+  display: block;
+  margin-top: 8px;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.gmo-token-attached-frame { touch-action: none; }
+.gmo-token-hud-control { cursor: pointer; }
+.gmo-token-hud-control .gmo-gekko-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
 }

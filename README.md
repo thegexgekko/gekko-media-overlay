@@ -7,8 +7,10 @@ Module Foundry VTT V14 permettant au MJ d'afficher des images, vidéos, textes e
 - Plusieurs fenêtres simultanées.
 - Contenus : image, vidéo, texte ou HTML simple filtré.
 - Ciblage de tous les joueurs ou de joueurs sélectionnés.
-- Trois modes de placement : fixe, flottant contrôlé par le MJ, flottant contrôlé par chaque joueur.
+- Quatre modes de placement : fixe, flottant contrôlé par le MJ, flottant contrôlé par chaque joueur, ou attaché à un token.
 - Déplacement direct à la souris.
+- Bouton GEKKO dans le HUD des tokens pour créer rapidement une fenêtre liée.
+- Fenêtres liées : 8 positions autour du token, distance réglable et suivi automatique pendant déplacements, panoramique et zoom.
 - Redimensionnement direct par une poignée placée en bas à droite des fenêtres flottantes.
 - Ratio des images et vidéos toujours conservé lors du redimensionnement.
 - Taille et position synchronisées en direct en mode MJ.
@@ -87,4 +89,4 @@ Le mode HTML autorise volontairement un sous-ensemble limité : titres, paragrap
 
 Le workflow GitHub Actions `.github/workflows/release.yml` crée automatiquement une release quand une nouvelle version de `module.json` est poussée sur `main`, si le tag correspondant n'existe pas encore.
 
-Version actuelle : **0.3.7**.
+Version actuelle : **0.4.0**.
