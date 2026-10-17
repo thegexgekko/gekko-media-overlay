@@ -86,6 +86,10 @@ Après avoir ajouté ou modifié un cadre, ouvrir le gestionnaire et cliquer sur
 
 Le mode HTML autorise volontairement un sous-ensemble limité : titres, paragraphes, gras, italique, listes, liens, images, tableaux simples, code et citations. Les scripts, gestionnaires d'événements JavaScript, styles inline, classes et identifiants sont supprimés avant affichage.
 
+## Correctifs
+
+- **0.4.1** : correction du calcul de position des fenêtres attachées à un token ; le pan et le zoom n'étaient plus appliqués deux fois, ce qui pouvait envoyer la fenêtre hors écran.
+
 ## Publication
 
 Le workflow GitHub Actions `.github/workflows/release.yml` crée automatiquement une release quand une nouvelle version de `module.json` est poussée sur `main`, si le tag correspondant n'existe pas encore.
