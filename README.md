@@ -11,6 +11,7 @@ Module Foundry VTT V14 permettant au MJ d'afficher des images, vidéos, textes e
 - Déplacement direct à la souris.
 - Bouton GEKKO dans le HUD des tokens pour créer rapidement une fenêtre liée.
 - Fenêtres liées : 8 positions autour du token, distance réglable et suivi automatique pendant déplacements, panoramique et zoom.
+- Les fenêtres attachées à un token restent contrôlables uniquement par le MJ ; les joueurs les voient sans pouvoir les déplacer, les redimensionner ou les fermer.
 - Redimensionnement direct par une poignée placée en bas à droite des fenêtres flottantes.
 - Ratio des images et vidéos toujours conservé lors du redimensionnement.
 - Taille et position synchronisées en direct en mode MJ.
