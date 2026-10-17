@@ -401,23 +401,23 @@ function tokenPlaceableFor(overlay) {
 function tokenScreenBounds(token) {
   if (!token) return null;
   const bounds = token.getBounds?.();
-  const transform = canvas?.stage?.worldTransform;
-  if (!bounds || !transform?.apply) return null;
+  if (!bounds) return null;
 
-  const topLeft = transform.apply({ x: bounds.x, y: bounds.y });
-  const bottomRight = transform.apply({ x: bounds.x + bounds.width, y: bounds.y + bounds.height });
+  // PIXI getBounds() renvoie déjà les coordonnées globales après pan/zoom.
+  // Ne pas réappliquer canvas.stage.worldTransform : cela comptait le pan/zoom deux fois.
   const view = canvas?.app?.canvas ?? canvas?.app?.view;
   const viewRect = view?.getBoundingClientRect?.() ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
-  const screenWidth = canvas?.app?.screen?.width || viewRect.width || window.innerWidth || 1;
-  const screenHeight = canvas?.app?.screen?.height || viewRect.height || window.innerHeight || 1;
+  const screenWidth = canvas?.app?.screen?.width || canvas?.app?.renderer?.screen?.width || viewRect.width || window.innerWidth || 1;
+  const screenHeight = canvas?.app?.screen?.height || canvas?.app?.renderer?.screen?.height || viewRect.height || window.innerHeight || 1;
   const scaleX = (viewRect.width || screenWidth) / screenWidth;
   const scaleY = (viewRect.height || screenHeight) / screenHeight;
 
-  const left = viewRect.left + Math.min(topLeft.x, bottomRight.x) * scaleX;
-  const top = viewRect.top + Math.min(topLeft.y, bottomRight.y) * scaleY;
-  const right = viewRect.left + Math.max(topLeft.x, bottomRight.x) * scaleX;
-  const bottom = viewRect.top + Math.max(topLeft.y, bottomRight.y) * scaleY;
-  return { left, top, width: right - left, height: bottom - top };
+  return {
+    left: viewRect.left + bounds.x * scaleX,
+    top: viewRect.top + bounds.y * scaleY,
+    width: bounds.width * scaleX,
+    height: bounds.height * scaleY
+  };
 }
 
 function positionTokenAttachedFrame(frame, overlay) {
