@@ -25,9 +25,9 @@ jobs:
       - name: Validate UI changes
         shell: bash
         run: |
-          grep -q "fa-up-down-left-right"></dev/null scripts/media-overlay.js || true
-          grep -q "gmo-runtime-settings" scripts/media-overlay.js
-          grep -q "flex: 0 0 30px" styles/media-overlay.css
+          grep -q 'fa-up-down-left-right' scripts/media-overlay.js
+          grep -q 'gmo-runtime-settings' scripts/media-overlay.js
+          grep -q 'flex: 0 0 30px' styles/media-overlay.css
           node -e "const m=require('./module.json'); if(m.version!=='0.4.4') process.exit(1); if(!m.download.includes('/v0.4.4/')) process.exit(1);"
 
       - name: Commit v0.4.4
