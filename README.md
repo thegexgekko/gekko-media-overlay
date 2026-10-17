@@ -5,6 +5,7 @@ Module Foundry VTT V14 permettant au MJ d'afficher des images, vidéos, textes e
 ## Fonctions principales
 
 - Plusieurs fenêtres simultanées.
+- Quatre préréglages rapides personnalisables permettent de mémoriser une configuration de fenêtre et d’en recréer une copie en un clic.
 - Les panneaux de réglage de chaque fenêtre peuvent être repliés pour faciliter la gestion de nombreuses fenêtres média.
 - Bouton Réglages réservé au MJ directement sur les fenêtres affichées, ouvrant le gestionnaire sur la fenêtre concernée.
 - Contenus : image, vidéo, texte ou HTML simple filtré.
@@ -90,6 +91,7 @@ Le mode HTML autorise volontairement un sous-ensemble limité : titres, paragrap
 
 ## Correctifs
 
+- **0.5.0** : ajout de quatre préréglages rapides personnalisables, avec nom, fenêtre source, sauvegarde, recréation et suppression du preset.
 - **0.4.4** : uniformisation de la barre de contrôle des médias ; Déplacer, Recentrer et Réglages sont désormais des boutons compacts à icône seule, avec leurs info-bulles conservées au survol.
 - **0.4.3** : ajout d'un bouton Réglages réservé au MJ directement sur les fenêtres affichées ; il ouvre le gestionnaire sur la fenêtre concernée et la déplie automatiquement.
 - **0.4.2** : ajout de panneaux repliables dans le gestionnaire afin de naviguer plus facilement entre plusieurs fenêtres média.
@@ -99,4 +101,4 @@ Le mode HTML autorise volontairement un sous-ensemble limité : titres, paragrap
 
 Le workflow GitHub Actions `.github/workflows/release.yml` crée automatiquement une release quand une nouvelle version de `module.json` est poussée sur `main`, si le tag correspondant n'existe pas encore.
 
-Version actuelle : **0.4.4**.
+Version actuelle : **0.5.0**.

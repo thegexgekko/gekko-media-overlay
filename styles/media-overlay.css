@@ -1,4 +1,4 @@
-/* GEKKO — Media Overlay v0.4.4 */
+/* GEKKO — Media Overlay v0.5.0 */
 
 .gekko-media-overlay-manager .window-content {
   padding: 0;
@@ -48,6 +48,104 @@
 .gmo-toolbar-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.gmo-preset-panel {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-light-2, #7776);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-bg, #191919) 88%, transparent);
+  box-shadow: 0 2px 8px #0002;
+}
+
+.gmo-preset-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 9px;
+}
+
+.gmo-preset-heading > div {
+  min-width: 0;
+}
+
+.gmo-preset-heading strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.gmo-preset-heading small {
+  display: block;
+  opacity: 0.68;
+  line-height: 1.25;
+}
+
+.gmo-preset-source {
+  flex: 0 0 250px;
+}
+
+.gmo-preset-source > span {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.82em;
+  font-weight: 600;
+  opacity: 0.78;
+}
+
+.gmo-preset-source select {
+  width: 100%;
+}
+
+.gmo-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gmo-preset-slot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.gmo-preset-slot.is-configured {
+  border-color: rgba(255, 170, 45, 0.42);
+  background: rgba(255, 170, 45, 0.055);
+}
+
+.gmo-preset-slot input {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  font-weight: 650;
+}
+
+.gmo-preset-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gmo-preset-actions button {
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.gmo-preset-actions button:disabled {
+  opacity: 0.35;
 }
 
 .gmo-overlay-list {

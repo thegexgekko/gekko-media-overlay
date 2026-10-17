@@ -17,6 +17,46 @@
     </div>
   </header>
 
+  <section class="gmo-preset-panel">
+    <div class="gmo-preset-heading">
+      <div>
+        <strong><i class="fa-solid fa-wand-magic-sparkles"></i> Préréglages rapides</strong>
+        <small>Choisis une fenêtre source, sauvegarde sa configuration dans l’un des quatre emplacements, puis recrée-la en un clic.</small>
+      </div>
+      <label class="gmo-preset-source">
+        <span>Fenêtre source</span>
+        <select data-preset-source {{#unless hasPresetSources}}disabled{{/unless}}>
+          {{#if hasPresetSources}}
+            {{#each presetSources}}
+              <option value="{{value}}">{{label}}</option>
+            {{/each}}
+          {{else}}
+            <option value="">Aucune fenêtre disponible</option>
+          {{/if}}
+        </select>
+      </label>
+    </div>
+
+    <div class="gmo-preset-grid">
+      {{#each presetSlots}}
+        <div class="gmo-preset-slot {{#if hasPreset}}is-configured{{/if}}" data-preset-slot="{{slot}}">
+          <input type="text" data-preset-name value="{{name}}" maxlength="40" aria-label="Nom du préréglage {{slot}}">
+          <div class="gmo-preset-actions">
+            <button type="button" data-action="usePreset" data-preset-slot="{{slot}}" title="Créer une nouvelle fenêtre depuis ce préréglage" {{#unless hasPreset}}disabled{{/unless}}>
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </button>
+            <button type="button" data-action="savePreset" data-preset-slot="{{slot}}" title="Enregistrer la fenêtre source dans ce préréglage" {{#unless ../hasPresetSources}}disabled{{/unless}}>
+              <i class="fa-solid fa-floppy-disk"></i>
+            </button>
+            <button type="button" data-action="clearPreset" data-preset-slot="{{slot}}" title="Vider ce préréglage" {{#unless hasPreset}}disabled{{/unless}}>
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      {{/each}}
+    </div>
+  </section>
+
   {{#unless hasOverlays}}
     <div class="gmo-empty-state">
       <i class="fa-solid fa-photo-film"></i>

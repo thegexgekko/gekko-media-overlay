@@ -1,6 +1,8 @@
 const MODULE_ID = "gekko-media-overlay";
 const SOCKET_NAME = `module.${MODULE_ID}`;
 const SETTING_OVERLAYS = "overlays";
+const SETTING_PRESETS = "presets";
+const PRESET_SLOT_COUNT = 4;
 const RUNTIME_LAYER_ID = "gekko-media-overlay-layer";
 const PLAYER_POS_PREFIX = `${MODULE_ID}:player-position`;
 const PLAYER_SIZE_PREFIX = `${MODULE_ID}:player-size`;
@@ -90,6 +92,15 @@ function getStoredOverlays() {
 
 async function setStoredOverlays(overlays) {
   return game.settings.set(MODULE_ID, SETTING_OVERLAYS, clone(overlays));
+}
+
+function getStoredPresets() {
+  const value = game.settings.get(MODULE_ID, SETTING_PRESETS);
+  return value && typeof value === "object" ? clone(value) : {};
+}
+
+async function setStoredPresets(presets) {
+  return game.settings.set(MODULE_ID, SETTING_PRESETS, clone(presets));
 }
 
 function anchorPosition(position = "center") {
@@ -1304,7 +1315,28 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     });
 
     overlays.sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang));
-    return { ...context, overlays, hasOverlays: overlays.length > 0, customFrameRoot: CUSTOM_FRAME_ROOT };
+
+    const storedPresets = getStoredPresets();
+    const presetSlots = Array.from({ length: PRESET_SLOT_COUNT }, (_, index) => {
+      const slot = String(index + 1);
+      const saved = storedPresets[slot];
+      return {
+        slot,
+        name: String(saved?.name || `Préréglage ${slot}`),
+        hasPreset: Boolean(saved?.overlay)
+      };
+    });
+    const presetSources = overlays.map(overlay => ({ value: overlay.id, label: overlay.name }));
+
+    return {
+      ...context,
+      overlays,
+      hasOverlays: overlays.length > 0,
+      customFrameRoot: CUSTOM_FRAME_ROOT,
+      presetSlots,
+      presetSources,
+      hasPresetSources: presetSources.length > 0
+    };
   }
 
   _onRender(context, options) {
@@ -1396,6 +1428,9 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
 
     switch (action) {
       case "new": await this.#createOverlay(); break;
+      case "usePreset": await this.#usePreset(button); break;
+      case "savePreset": await this.#savePreset(button); break;
+      case "clearPreset": await this.#clearPreset(button); break;
       case "toggleCollapse": if (card) this.#toggleCollapse(card, button); break;
       case "browse": if (card) this.#browseMedia(card); break;
       case "save":
@@ -1523,6 +1558,94 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     collapsedOverlayIds.delete(overlay.id);
     overlays[overlay.id] = overlay;
     await setStoredOverlays(overlays);
+    await this.render({ force: true });
+  }
+
+  #presetSlot(button) {
+    const slot = String(button?.dataset?.presetSlot || "");
+    return Array.from({ length: PRESET_SLOT_COUNT }, (_, index) => String(index + 1)).includes(slot) ? slot : null;
+  }
+
+  #presetContainer(button) {
+    return button?.closest?.("[data-preset-slot]") ?? null;
+  }
+
+  async #savePreset(button) {
+    const slot = this.#presetSlot(button);
+    const container = this.#presetContainer(button);
+    if (!slot || !container) return;
+
+    const sourceId = this.element.querySelector("[data-preset-source]")?.value || "";
+    if (!sourceId) {
+      ui.notifications.warn("Choisis d’abord une fenêtre source pour ce préréglage.");
+      return;
+    }
+
+    const sourceCard = [...this.element.querySelectorAll("[data-overlay-id]")]
+      .find(card => card.dataset.overlayId === sourceId);
+    if (!sourceCard) {
+      ui.notifications.warn("La fenêtre source est introuvable.");
+      return;
+    }
+
+    const source = this.#readCard(sourceCard);
+    const nameInput = container.querySelector("[data-preset-name]");
+    const name = nameInput?.value?.trim() || source.name || `Préréglage ${slot}`;
+    const snapshot = normalizeOverlay(source);
+    snapshot.id = "";
+    snapshot.active = false;
+    snapshot.activeRecipients = [];
+
+    const presets = getStoredPresets();
+    presets[slot] = { name, overlay: snapshot };
+    await setStoredPresets(presets);
+    ui.notifications.info(`Préréglage « ${name} » enregistré.`);
+    await this.render({ force: true });
+  }
+
+  async #usePreset(button) {
+    const slot = this.#presetSlot(button);
+    if (!slot) return;
+    const presets = getStoredPresets();
+    const saved = presets[slot];
+    if (!saved?.overlay) {
+      ui.notifications.warn("Ce préréglage est vide.");
+      return;
+    }
+
+    const overlays = getStoredOverlays();
+    const overlay = normalizeOverlay({
+      ...clone(saved.overlay),
+      id: foundry.utils.randomID(),
+      name: String(saved.name || saved.overlay.name || `Préréglage ${slot}`)
+    });
+    overlay.active = false;
+    overlay.activeRecipients = [];
+    collapsedOverlayIds.delete(overlay.id);
+    overlays[overlay.id] = overlay;
+    await setStoredOverlays(overlays);
+    ui.notifications.info(`Nouvelle fenêtre créée depuis « ${overlay.name} ».`);
+    await this.render({ force: true });
+  }
+
+  async #clearPreset(button) {
+    const slot = this.#presetSlot(button);
+    if (!slot) return;
+    const presets = getStoredPresets();
+    const saved = presets[slot];
+    if (!saved?.overlay) return;
+
+    const confirmed = await DialogV2.confirm({
+      window: { title: "Vider le préréglage" },
+      content: `<p>Vider le préréglage <strong>${escapeHTML(saved.name || `Préréglage ${slot}`)}</strong> ?</p>`,
+      rejectClose: false,
+      modal: true
+    });
+    if (!confirmed) return;
+
+    delete presets[slot];
+    await setStoredPresets(presets);
+    ui.notifications.info("Préréglage vidé.");
     await this.render({ force: true });
   }
 
@@ -1770,6 +1893,14 @@ Hooks.on("renderTokenHUD", (hud, html) => {
 Hooks.once("init", () => {
   game.settings.register(MODULE_ID, SETTING_OVERLAYS, {
     name: "Fenêtres média",
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
+  });
+
+  game.settings.register(MODULE_ID, SETTING_PRESETS, {
+    name: "Préréglages rapides",
     scope: "world",
     config: false,
     type: Object,
