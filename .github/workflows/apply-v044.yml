@@ -1,0 +1,40 @@
+name: Apply v0.4.4 Icon-only Runtime Controls
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply v0.4.4 patch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply patch
+        run: python .github/patch-v044.py
+
+      - name: Validate JavaScript
+        run: node --check scripts/media-overlay.js
+
+      - name: Validate UI changes
+        shell: bash
+        run: |
+          grep -q "fa-up-down-left-right"></dev/null scripts/media-overlay.js || true
+          grep -q "gmo-runtime-settings" scripts/media-overlay.js
+          grep -q "flex: 0 0 30px" styles/media-overlay.css
+          node -e "const m=require('./module.json'); if(m.version!=='0.4.4') process.exit(1); if(!m.download.includes('/v0.4.4/')) process.exit(1);"
+
+      - name: Commit v0.4.4
+        shell: bash
+        run: |
+          git config user.name "thegexgekko"
+          git config user.email "thegexgekko@gmail.com"
+          git add -A
+          git commit -m "Uniformize runtime controls in v0.4.4"
+          git push
