@@ -1,4 +1,4 @@
-/* GEKKO — Media Overlay v0.4.3 */
+/* GEKKO — Media Overlay v0.4.4 */
 
 .gekko-media-overlay-manager .window-content {
   padding: 0;
@@ -541,9 +541,15 @@
 }
 
 .gmo-floating-chrome button {
+  flex: 0 0 30px;
+  width: 30px;
+  min-width: 30px;
   min-height: 26px;
   height: 26px;
-  padding: 2px 7px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 6px;
   background: rgba(10, 10, 12, 0.9);

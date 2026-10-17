@@ -90,6 +90,7 @@ Le mode HTML autorise volontairement un sous-ensemble limité : titres, paragrap
 
 ## Correctifs
 
+- **0.4.4** : uniformisation de la barre de contrôle des médias ; Déplacer, Recentrer et Réglages sont désormais des boutons compacts à icône seule.
 - **0.4.3** : ajout d'un bouton Réglages réservé au MJ directement sur les fenêtres affichées ; il ouvre le gestionnaire sur la fenêtre concernée et la déplie automatiquement.
 - **0.4.2** : ajout de panneaux repliables dans le gestionnaire afin de naviguer plus facilement entre plusieurs fenêtres média.
 - **0.4.1** : correction du calcul de position des fenêtres attachées à un token ; le pan et le zoom n'étaient plus appliqués deux fois, ce qui pouvait envoyer la fenêtre hors écran.
@@ -98,4 +99,4 @@ Le mode HTML autorise volontairement un sous-ensemble limité : titres, paragrap
 
 Le workflow GitHub Actions `.github/workflows/release.yml` crée automatiquement une release quand une nouvelle version de `module.json` est poussée sur `main`, si le tag correspondant n'existe pas encore.
 
-Version actuelle : **0.4.3**.
+Version actuelle : **0.4.4**.

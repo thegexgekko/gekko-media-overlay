@@ -646,7 +646,8 @@ function addRuntimeChrome(frame, overlay, { preview = false, controllerOnly = fa
     handle.title = overlay.placementMode === "gm"
       ? "Déplacer cette fenêtre chez les joueurs"
       : "Déplacer cette fenêtre";
-    handle.innerHTML = '<i class="fa-solid fa-up-down-left-right"></i><span>Déplacer</span>';
+    handle.setAttribute("aria-label", "Déplacer cette fenêtre");
+    handle.innerHTML = '<i class="fa-solid fa-up-down-left-right"></i>';
     chrome.appendChild(handle);
     setupDragging(handle, frame, overlay);
   }
@@ -657,6 +658,7 @@ function addRuntimeChrome(frame, overlay, { preview = false, controllerOnly = fa
     reset.type = "button";
     reset.className = "gmo-runtime-reset";
     reset.title = "Recentrer et réinitialiser la taille";
+    reset.setAttribute("aria-label", "Recentrer et réinitialiser la taille");
     reset.innerHTML = '<i class="fa-solid fa-crosshairs"></i>';
     reset.addEventListener("click", async event => {
       event.preventDefault();
@@ -681,7 +683,7 @@ function addRuntimeChrome(frame, overlay, { preview = false, controllerOnly = fa
     settings.className = "gmo-runtime-settings";
     settings.title = "Ouvrir les réglages de cette fenêtre";
     settings.setAttribute("aria-label", "Ouvrir les réglages de cette fenêtre");
-    settings.innerHTML = '<i class="fa-solid fa-gear"></i><span>Réglages</span>';
+    settings.innerHTML = '<i class="fa-solid fa-gear"></i>';
     settings.addEventListener("click", async event => {
       event.preventDefault();
       event.stopPropagation();
