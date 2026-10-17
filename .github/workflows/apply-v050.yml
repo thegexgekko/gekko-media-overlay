@@ -1,0 +1,41 @@
+name: Apply v0.5.0 Quick Presets
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Apply v0.5.0 preset patch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply patch
+        run: python .github/patch-v050.py
+
+      - name: Validate JavaScript
+        run: node --check scripts/media-overlay.js
+
+      - name: Validate preset feature
+        shell: bash
+        run: |
+          grep -q 'SETTING_PRESETS' scripts/media-overlay.js
+          grep -q 'savePreset' scripts/media-overlay.js
+          grep -q 'usePreset' scripts/media-overlay.js
+          grep -q 'gmo-preset-panel' templates/manager.hbs
+          grep -q 'gmo-preset-grid' styles/media-overlay.css
+
+      - name: Commit v0.5.0 source changes
+        shell: bash
+        run: |
+          git config user.name "thegexgekko"
+          git config user.email "thegexgekko@gmail.com"
+          git add -A
+          git commit -m "Add quick presets in v0.5.0"
+          git push
