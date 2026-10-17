@@ -5,6 +5,7 @@ Module Foundry VTT V14 permettant au MJ d'afficher des images, vidéos, textes e
 ## Fonctions principales
 
 - Plusieurs fenêtres simultanées.
+- Les panneaux de réglage de chaque fenêtre peuvent être repliés pour faciliter la gestion de nombreuses fenêtres média.
 - Contenus : image, vidéo, texte ou HTML simple filtré.
 - Ciblage de tous les joueurs ou de joueurs sélectionnés.
 - Quatre modes de placement : fixe, flottant contrôlé par le MJ, flottant contrôlé par chaque joueur, ou attaché à un token.
@@ -94,4 +95,4 @@ Le mode HTML autorise volontairement un sous-ensemble limité : titres, paragrap
 
 Le workflow GitHub Actions `.github/workflows/release.yml` crée automatiquement une release quand une nouvelle version de `module.json` est poussée sur `main`, si le tag correspondant n'existe pas encore.
 
-Version actuelle : **0.4.1**.
+Version actuelle : **0.4.2**.

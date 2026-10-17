@@ -1,4 +1,4 @@
-/* GEKKO — Media Overlay v0.4.1 */
+/* GEKKO — Media Overlay v0.4.2 */
 
 .gekko-media-overlay-manager .window-content {
   padding: 0;
@@ -72,6 +72,64 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.gmo-collapse-toggle {
+  flex: 0 0 30px;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.78;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+.gmo-collapse-toggle:hover,
+.gmo-collapse-toggle:focus-visible {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.gmo-card-header .gmo-name {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.gmo-overlay-card.gmo-collapsed {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.gmo-overlay-card.gmo-collapsed .gmo-card-header {
+  margin-bottom: 0;
+}
+
+.gmo-overlay-card.gmo-collapsed > .gmo-grid,
+.gmo-overlay-card.gmo-collapsed > .gmo-card-actions {
+  display: none;
+}
+
+.gmo-overlay-card.gmo-collapsed .gmo-name {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.gmo-overlay-card.gmo-collapsed .gmo-name:hover,
+.gmo-overlay-card.gmo-collapsed .gmo-name:focus {
+  background: var(--color-cool-5-75, rgba(255,255,255,0.05));
+  border-color: var(--color-border-light-2, #7776);
 }
 
 .gmo-name {

@@ -27,8 +27,14 @@
 
   <div class="gmo-overlay-list">
     {{#each overlays}}
-      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}} {{#if isFixedMode}}gmo-placement-fixed{{else}}gmo-placement-floating{{/if}} {{#if isGMFloatingMode}}gmo-placement-gm{{/if}} {{#if isPlayerFloatingMode}}gmo-placement-player{{/if}} {{#if isTokenMode}}gmo-placement-token{{/if}} {{#if isMediaContent}}gmo-content-media{{/if}} {{#if isTextContent}}gmo-content-text{{/if}} {{#if isHtmlContent}}gmo-content-html{{/if}} {{#if isCustomFrame}}gmo-frame-custom-selected{{/if}}" data-overlay-id="{{id}}">
+      <article class="gmo-overlay-card {{#if isSelectedMode}}gmo-target-selected{{/if}} {{#if isFixedMode}}gmo-placement-fixed{{else}}gmo-placement-floating{{/if}} {{#if isGMFloatingMode}}gmo-placement-gm{{/if}} {{#if isPlayerFloatingMode}}gmo-placement-player{{/if}} {{#if isTokenMode}}gmo-placement-token{{/if}} {{#if isMediaContent}}gmo-content-media{{/if}} {{#if isTextContent}}gmo-content-text{{/if}} {{#if isHtmlContent}}gmo-content-html{{/if}} {{#if isCustomFrame}}gmo-frame-custom-selected{{/if}} {{#if isCollapsed}}gmo-collapsed{{/if}}" data-overlay-id="{{id}}">
         <div class="gmo-card-header">
+          <button type="button" class="gmo-collapse-toggle" data-action="toggleCollapse"
+                  title="{{#if isCollapsed}}Déployer cette fenêtre{{else}}Réduire cette fenêtre{{/if}}"
+                  aria-label="{{#if isCollapsed}}Déployer cette fenêtre{{else}}Réduire cette fenêtre{{/if}}"
+                  aria-expanded="{{#if isCollapsed}}false{{else}}true{{/if}}">
+            <i class="fa-solid {{#if isCollapsed}}fa-chevron-right{{else}}fa-chevron-down{{/if}}"></i>
+          </button>
           <input class="gmo-name" name="name" type="text" value="{{name}}" aria-label="Nom de la fenêtre">
           <span class="gmo-status {{#if active}}is-active{{/if}}">
             <i class="fa-solid {{#if active}}fa-circle-play{{else}}fa-circle-stop{{/if}}"></i>

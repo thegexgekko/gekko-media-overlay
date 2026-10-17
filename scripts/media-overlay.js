@@ -59,6 +59,7 @@ const DEFAULT_OVERLAY = Object.freeze({
 
 let managerInstance = null;
 let customFramesCache = new Map();
+let collapsedOverlayIds = new Set();
 
 function clone(value) {
   return foundry.utils.deepClone(value);
@@ -1264,6 +1265,7 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
         isTextContent: overlay.contentType === "text",
         isHtmlContent: overlay.contentType === "html",
         isCustomFrame: overlay.frameStyle.startsWith("custom:"),
+        isCollapsed: collapsedOverlayIds.has(overlay.id),
         statusLabel: overlay.active ? `Affichée (${activeCount})` : "Fermée",
         widthUnits: unitOptions(overlay.widthUnit, "width"),
         heightUnits: unitOptions(overlay.heightUnit, "height"),
@@ -1376,6 +1378,7 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
 
     switch (action) {
       case "new": await this.#createOverlay(); break;
+      case "toggleCollapse": if (card) this.#toggleCollapse(card, button); break;
       case "browse": if (card) this.#browseMedia(card); break;
       case "save":
         if (card) {
@@ -1400,6 +1403,23 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
       case "close": if (card) await this.#closeOverlay(card.dataset.overlayId); break;
       case "delete": if (card) await this.#deleteOverlay(card.dataset.overlayId); break;
       case "closeAll": await this.#closeAll(); break;
+    }
+  }
+
+  #toggleCollapse(card, button = null) {
+    const id = card?.dataset?.overlayId;
+    if (!id) return;
+    const collapsed = !card.classList.contains("gmo-collapsed");
+    card.classList.toggle("gmo-collapsed", collapsed);
+    if (collapsed) collapsedOverlayIds.add(id);
+    else collapsedOverlayIds.delete(id);
+
+    const toggle = button ?? card.querySelector('[data-action="toggleCollapse"]');
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      toggle.title = collapsed ? "Déployer cette fenêtre" : "Réduire cette fenêtre";
+      const icon = toggle.querySelector("i");
+      if (icon) icon.className = `fa-solid ${collapsed ? "fa-chevron-right" : "fa-chevron-down"}`;
     }
   }
 
@@ -1482,6 +1502,7 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
   async #createOverlay() {
     const overlays = getStoredOverlays();
     const overlay = createOverlayData();
+    collapsedOverlayIds.delete(overlay.id);
     overlays[overlay.id] = overlay;
     await setStoredOverlays(overlays);
     await this.render({ force: true });
@@ -1614,6 +1635,7 @@ class MediaOverlayManager extends HandlebarsApplicationMixin(ApplicationV2) {
     await setStoredOverlays(overlays);
     clearPlayerPosition(id);
     clearPlayerSize(id);
+    collapsedOverlayIds.delete(id);
     removeRuntimeOverlay(`preview-${id}`);
     await this.render({ force: true });
   }
@@ -1659,6 +1681,7 @@ async function createAttachedOverlayForToken(token) {
 
   const overlays = getStoredOverlays();
   const overlay = createOverlayData();
+  collapsedOverlayIds.delete(overlay.id);
   overlay.name = `${tokenDocument.name || "Token"} — média lié`;
   overlay.placementMode = "token";
   overlay.tokenSceneId = sceneId;
